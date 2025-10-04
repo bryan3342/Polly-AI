@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    DATABASE_URL = os.getenv("DATABASE_URL")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./debate_sessions.db")
     SECRET_KEY = os.getenv("SECRET_KEY")
     CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 

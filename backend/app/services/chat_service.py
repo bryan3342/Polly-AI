@@ -1,46 +1,35 @@
 from app.config import config
-import openai
-from typing import List, Dict
+import google.generativeai as genai
+from typing import Dict
 
 class ChatService:
     def __init__(self):
-        self.api_key = config.OPENAI_API_KEY
+        self.api_key = config.GEMINI_API_KEY
         if not self.api_key:
-            print("Warning: OPENAI_API_KEY is not set. Please set it in your environment variables.")
+            print("Warning: GEMINI_API_KEY is not set.")
         
-        # Initialize OpenAI chat
-        openai.api_key = self.api_key
-        print("ChatService initialized with OpenAI API key.")
+        genai.configure(api_key=self.api_key)
+        self.model = genai.GenerativeModel('gemini-pro')
+        print("ChatService initialized with Gemini API.")
 
-    async def get_gpt_response(self, session_id: str, prompt: str, emotion_summary: Dict):
-
+    async def get_gpt_response(self, session_id: str, prompt: str, emotion_summary: Dict = None):
+        """Get Gemini response for chat or feedback"""
         if not self.api_key:
-            return "Error: OpenAI API key is not configured."
+            return "Error: Gemini API key is not configured."
 
-        system_prompt = (
-            "You are an AI assistant that helps users improve their debate skills. "
-            "Based on the user's emotional state during their practice session, provide constructive feedback. "
-            "Use the following emotional summary to tailor your advice:\n"
-            f"{emotion_summary}\n"
-            "Offer specific suggestions on how to manage emotions like nervousness, confidence, and enthusiasm during debates."
-        )
+        system_context = """You are Polly AI, an expert debate coach. You help people improve their 
+        debate and public speaking skills through constructive feedback and encouragement."""
+        
+        if emotion_summary and emotion_summary.get("emotion_summary"):
+            emotions = emotion_summary.get("emotion_summary", {})
+            system_context += f"\n\nCurrent emotional state: {emotions.get('dominant', 'neutral')}"
 
         try:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ]
-        
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=messages,
-                max_tokens=500,
-                n=1,
-                stop=None,
-                temperature=0.7,
-            )
-
-            return response.choices[0].message['content'].strip()
+            full_prompt = f"{system_context}\n\nUser: {prompt}"
+            
+            response = self.model.generate_content(full_prompt)
+            return response.text.strip()
+            
         except Exception as e:
-            print(f"Error getting GPT response: {str(e)}")
-            return "Error: Unable to get response from OpenAI."
+            print(f"Error getting Gemini response: {str(e)}")
+            return "Error: Unable to get response from Gemini."
