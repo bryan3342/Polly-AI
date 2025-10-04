@@ -1,25 +1,24 @@
 import './App.css'
 import Navbar from './components/Navbar';
+import Timer from './components/Timer';
+import Camera from './components/Camera';
+import Chatbox from './components/Chatbox';
 
 function App() {
 
 
   return (
-    <>
-      <Navbar />
-      <div className="debate-container">
-        {/* Box 1: Camera Display & Controls */}
-        <div className="video-area">
-          {/* ... WebcamDisplay component here ... */}
-          {/* ... ControlPanel component here ... */}
-        </div>
-
-        {/* Box 2: AI Feedback / Chat */}
-        <div className="chat-box">
-          {/* ... AIFeedback component here ... */}
-        </div>
+    <div style={{ 
+      backgroundColor: '#0A0F26', 
+      minHeight: '100vh',
+      width: '100%'
+    }}>
+      <div className='flex flex-row justify-around pt-10'>
+      <Camera />
+      <Chatbox />
       </div>
-    </>
+
+    </div>
   );
 }
 
