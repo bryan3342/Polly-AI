@@ -1,16 +1,17 @@
 import cv2
 import sys
 
+# For Documentation and Reference:
+# https://pypi.org/project/opencv-python/
+
 def test_camera():
     print("Testing Camera Access...")
     print("Press 'q' to quit the camera feed.")
-
 
     # Loading Face Detection Classifier
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
     )
-
 
     # Start video capture from the default camera (0)
     cap = cv2.VideoCapture(0)
@@ -44,9 +45,7 @@ def test_camera():
             break
     
         frame_count += 1
-
         
-
         faces = face_cascade.detectMultiScale(
             frame, 
             scaleFactor=1.1, 
@@ -56,7 +55,7 @@ def test_camera():
 
         # Draw rectangles around detected faces
         for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 4)
             cv2.putText(
                 frame, 
                 "Face Detected", 
@@ -84,17 +83,14 @@ def test_camera():
 
         cv2.imshow('Face Detection Feed', frame)
 
-
         # Print stats every 30 frames
         if frame_count % 30 == 0:
             print(f"Captured {frame_count} frames.")
             detection_rate = (face_detected_count / frame_count) * 100
             print(f"Face Detection Rate: {detection_rate:.2f}%")
-
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
 
     cap.release()
     cv2.destroyAllWindows()
