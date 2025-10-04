@@ -145,3 +145,77 @@ def test_camera():
 
 if __name__ == "__main__":
     test_camera()
+
+
+def run_camera_headless(stop_event=None):
+    """Run the same detection loop as test_camera but without any GUI calls.
+
+    This is safe to run in a background thread (no cv2.imshow / waitKey).
+    stop_event should be a threading.Event or any object with is_set() method.
+    """
+    import threading
+
+    if stop_event is None:
+        stop_event = threading.Event()
+
+    # Initialize Emotion Detection Service
+    try:
+        emotion_service = EmotionService()
+    except Exception as e:
+        print(f"Error initializing Emotion Detection Service in headless runner: {e}")
+        return
+
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    )
+
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Headless runner: Could not open camera.")
+        return
+
+    print("Headless runner: Camera opened successfully.")
+
+    emotion_timeline = []
+    last_emotion_time = time.time()
+    current_emotion_result = None
+
+    try:
+        while not stop_event.is_set():
+            ret, frame = cap.read()
+            if not ret:
+                time.sleep(0.05)
+                continue
+
+            frame = cv2.flip(frame, 1)
+
+            current_time = time.time()
+
+            faces = face_cascade.detectMultiScale(
+                frame,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30)
+            )
+
+            if current_time - last_emotion_time >= 1.0:
+                try:
+                    emotion_result = emotion_service.analyze_frame(frame)
+                except Exception as e:
+                    print(f"Error analyzing frame in headless runner: {e}")
+                    emotion_result = None
+
+                if emotion_result:
+                    emotion_timeline.append(emotion_result)
+                    current_emotion_result = emotion_result
+                    if emotion_result.get('face_detected'):
+                        print(f"Emotion Detected: {emotion_result['dominant_emotion']} (Confidence: {emotion_result['confidence']:.2f})")
+
+                last_emotion_time = current_time
+
+            # small sleep to yield
+            time.sleep(0.01)
+
+    finally:
+        cap.release()
+        print("Headless runner: Camera released and headless loop stopped.")

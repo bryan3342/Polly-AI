@@ -6,7 +6,6 @@ import cv2
 from PIL import Image
 from io import BytesIO
 from typing import Dict
-import asyncio
 from datetime import datetime
 
 class ConnectionManager:
@@ -14,6 +13,9 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.session_data: Dict[str, dict] = {}
     
+        from app.services.emotion_service import EmotionService
+        self.emotion_service = EmotionService()
+
     async def connect(self,session_id: str, websocket: WebSocket):
         await websocket.accept()
         self.active_connections[session_id] = websocket
@@ -54,8 +56,53 @@ class ConnectionManager:
         # Convert RGB to BGR for OpenCV
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
-        
+
 
         return img_bgr
+
+    async def process_frame(self, session_id: str, frame_data: str, timestamp: float):
+        """Process a video frame for emotion detection"""
+        try:
+            # Convert to OpenCV format
+            frame = self.base64_to_image(frame_data)
+            
+            # Analyze emotions
+            result = self.emotion_service.analyze_frame(frame)
+            
+            # Store in session
+            if session_id in self.session_data:
+                self.session_data[session_id]["frame_count"] += 1
+                self.session_data[session_id]["emotion_timeline"].append(result)
+            
+            # Send result back to client
+            await self.send_message(session_id, {
+                "type": "emotion_update",
+                "data": result,
+                "frame_number": self.session_data[session_id]["frame_count"]
+            })
+            
+            return result
+            
+        except Exception as e:
+            print(f"⚠️ Error processing frame: {str(e)}")
+            await self.send_message(session_id, {
+                "type": "error",
+                "message": f"Frame processing error: {str(e)}"
+            })
+            return None
+        
+    def get_session_summary(self, session_id: str) -> dict:
+        """Get emotion summary for a session"""
+        if session_id not in self.session_data:
+            return {}
+        
+        emotion_timeline = self.session_data[session_id]["emotion_timeline"]
+        summary = self.emotion_service.calculate_summary(emotion_timeline)
+        
+        return {
+            "session_duration": (datetime.now() - self.session_data[session_id]["start_time"]).total_seconds(),
+            "total_frames": self.session_data[session_id]["frame_count"],
+            "emotion_summary": summary
+        }
 
 manager = ConnectionManager()
