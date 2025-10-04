@@ -18,6 +18,7 @@ class EmotionService:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Analyze emotions
+            # NOTE: DeepFace will try to detect a face internally
             result = DeepFace.analyze (
                 frame_rgb,
                 actions=["emotion"],
@@ -29,6 +30,18 @@ class EmotionService:
             # DeepFace returns a list of results, even for single image
             if isinstance(result, list) and len(result) > 0:
                 result = result[0]
+
+            # Initialize bounding box variable
+            bounding_box = None
+            
+            # --- NEW: Extract Bounding Box Coordinates ---
+            # DeepFace stores the coordinates in the 'region' key as a dictionary {'x', 'y', 'w', 'h'}
+            if result and 'region' in result:
+                region = result['region']
+                # Convert the dictionary into the list format [x, y, w, h] that the frontend expects
+                bounding_box = [region['x'], region['y'], region['w'], region['h']]
+            # ---------------------------------------------
+
 
             if result and 'emotion' in result:
                 emotions = result['emotion']
@@ -55,6 +68,7 @@ class EmotionService:
                     'dominant_emotion' : dominant_emotion,
                     'confidence' : normalized_emotions.get(dominant_emotion, 0),
                     'face_detected' : True,
+                    'bounding_box' : bounding_box, # <-- ADDED
                     'timestamp' : datetime.now().isoformat()
                 }
             else:
@@ -63,6 +77,7 @@ class EmotionService:
                     'dominant_emotion' : None,
                     'confidence' : 0.0,
                     'face_detected' : False,
+                    'bounding_box' : None, # <-- ADDED
                     'timestamp' : datetime.now().isoformat()
                 }
         
@@ -73,6 +88,7 @@ class EmotionService:
                 'dominant_emotion' : None,
                 'confidence' : 0.0,
                 'face_detected' : False,
+                'bounding_box' : None, # <-- ADDED
                 'timestamp' : datetime.now().isoformat()
             }
     
