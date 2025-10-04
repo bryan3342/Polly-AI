@@ -52,7 +52,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 audio_data = message.get("data")
 
                 if session_id in manager.session_data:
-                    manager.session_data[session_id]["audio_chunks"].append(audio_data)
+                    manager.session_data[session_id].setdefault("audio_chunks", []).append(audio_data)
                 
 
                 await manager.send_message(session_id, {
@@ -60,11 +60,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "timestamp" : message.get("timestamp")
                 })
             
+            elif message_type == "chat_message":
+                prompt = message.get("prompt")
+                if prompt:
+                    await manager.process_chat_message(session_id, prompt)
+
             elif message_type == "end_session":
                 # Handling session end
-                await manager.send_message(session_id, {
+                summary = manager.send_message(session_id, {
                     "type" : "session_ended",
                     "message" : "Session Completed",
+                    "summary" : summary,
                     "timestamp" : message.get("timestamp")
                 })
                 break
