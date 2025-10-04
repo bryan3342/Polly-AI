@@ -54,6 +54,8 @@ class ConnectionManager:
         # Convert RGB to BGR for OpenCV
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
+        
+
         return img_bgr
 
 manager = ConnectionManager()
