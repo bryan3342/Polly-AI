@@ -2,7 +2,6 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import config
 from app.api.websocket import manager
-import uuid
 import json
 
 app = FastAPI(title = "Polly Debate AI - Real-Time Analysis")
@@ -15,6 +14,10 @@ app.add_middleware(
     allow_methods = ["*"],
     allow_headers = ["*"],
 )
+
+@app.get("/")
+async def root():
+    return {"message": "Polly AI Backend Running", "status": "healthy"}
 
 @app.get("/health")
 async def health_check():
@@ -42,9 +45,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "timestamp" : timestamp
                 })
 
+                await manager.process_frame(session_id, frame_data, timestamp)
+
             elif message_type == "audio":
                 # Handling audio chunk
                 audio_data = message.get("data")
+
+                if session_id in manager.session_data:
+                    manager.session_data[session_id]["audio_chunks"].append(audio_data)
+                
 
                 await manager.send_message(session_id, {
                     "type" : "audio_received",
@@ -59,6 +68,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "timestamp" : message.get("timestamp")
                 })
                 break
+
     except WebSocketDisconnect:
         manager.disconnect(session_id)
         print(f"Session {session_id} disconnected.")
