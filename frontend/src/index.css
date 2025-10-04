@@ -1,45 +1,4 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Styling the Parent Container (The Boss) */
-.navbar {
-    display: flex;                /* Enables Flexbox */
-    justify-content: space-between; /* Pushes the Brand and Links/User to opposite ends */
-    align-items: center;          /* Vertically centers all items */
-    
-    /* Appearance */
-    background-color: #062a6dcb;    /* Dark background */
-    padding: 10px 20px;
-    color: white;
-    box-shadow: 0 2px 5px rgba(42, 41, 41, 0.3); /* Subtle shadow */
-}
-
-/* Styling the Links Group */
-.navbar-links {
-    display: flex;
-    gap: 20px; /* Provides consistent spacing between links */
-}
-
-.nav-link {
-    color: white;
-    text-decoration: none; /*Removes the underline */
-    font-weight: 500; 
-    transition: color 0.3s;
-    font-family: sans-serif;  
-}
-
-.nav-link:hover {
-    color: #e9edefb8; /* Example hover color, like your green button */
-    font-weight: lighter;
-}
-
-/* Styling the Brand Text */
-.navbar-brand h1 {
-    font-size: 1.5rem;
-    margin: 0; /* Remove default margin */ 
-}
-
-/* Styling the User Icon */
-.navbar-user span {
-    font-size: 1.5rem;
-    cursor: pointer;
-}

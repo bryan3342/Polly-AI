@@ -1,41 +1,65 @@
-// const Navbar = () => {
-//     return(
-//         <>
-//         <nav className="navbar">
-//             <div className="navbar-brand">
-//             <h1>POLLY-AI</h1>
-//             </div>
-//         </nav>
-//         <p className="text-blue-100">Play</p>
-//         </>
-//     )
-// }
+import Timer from "./Timer";
+import { FaPlay } from "react-icons/fa6";
+import { FaPause } from "react-icons/fa6";
+import { MdPersonOff } from "react-icons/md";
 
-// export default Navbar;
+import React, { useState } from "react";
 
-// import React from 'react';
-// import './Navbar.css';
-import '../index.css';
-// Import your CSS file where you define the styles below
-// import '../styles/Navbar.css'; 
+const NavbarTwo = () => {
+    const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-function Navbar() {
+    const toggleRunning = () => {
+        setIsTimerRunning((prev) => !prev);
+    };
+
+    const IconComponent = isTimerRunning ? FaPause : FaPlay;
+
+    const transparentLightBlue = "rgba(136, 167, 255, 0.45)";
+
     return (
-    <nav className="navbar">
-        <div className="navbar-brand">
-        <h1>Polly Bird</h1>
-        </div>
-      
-      {/* Navigation Links (Future Pages) */}
-      <div className="navbar-links">
-        {/* If you use React Router, change <a> to <Link to="..."> */}
-        <a href="#debate" className="nav-link">Debate</a>
-        <a href="#history" className="nav-link">History</a>
-        <a href="#settings" className="nav-link">Settings</a>
-      </div>
+        <>
+                    <div
+                        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex items-center justify-between text-white rounded-full shadow-xl px-4 z-50"
+style={{ width: "550px", height: "79px", backgroundColor: transparentLightBlue }}
+            >
+                {/* Left: Play/Pause + Camera Off */}
+                <div className="flex items-center space-x-3 text-2xl">
+                    <button
+                        aria-label={isTimerRunning ? "Pause timer" : "Start timer"}
+                        onClick={toggleRunning}
+                        className="text-white p-3 rounded-full hover:bg-white/20 transition duration-150"
+                    >
+                        <IconComponent />
+                    </button>
 
-    </nav>
-  );
-}
+                    <button
+                        aria-label="Toggle camera"
+                        className="text-red-300 opacity-80 p-3 rounded-full hover:bg-red-500/80 hover:text-white transition duration-150"
+                    >
+                        <MdPersonOff />
+                    </button>
+                </div>
 
-export default Navbar;
+                {/* Center: Timer */}
+                <div className="text-base px-3 font-inria">
+                    <Timer isRunning={isTimerRunning} />
+                </div>
+
+                {/* Right: Done */}
+                <div>
+                    <button
+                        className="text-sm px-5 py-4 rounded-full shadow-lg bg-[#5E7BCF] hover:bg-[#FFFFFF80] transition duration-150"
+                        aria-label="Done"
+                    >
+                        Done
+                    </button>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default NavbarTwo;
+
+
+
