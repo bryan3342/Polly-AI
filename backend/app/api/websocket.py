@@ -23,7 +23,7 @@ class ConnectionManager:
         self.active_connections[session_id] = websocket
         self.session_data[session_id] = {
             "start_time": datetime.now(),
-            "frames_count": 0,
+            "frame_count": 0,
             "emotions": [],
             "faces_detected": 0,
             "audio_chunks": 0,
@@ -74,7 +74,7 @@ class ConnectionManager:
             if session_id in self.session_data:
                 self.session_data[session_id]["frame_count"] += 1
                 if result.get("face_detected"):
-                    self.session_data[session_id]["emotion_timeline"].append(result)
+                    self.session_data[session_id]["emotions"].append(result)
             
             # Send result back to client
             await self.send_message(session_id, {
@@ -121,7 +121,7 @@ class ConnectionManager:
         if session_id not in self.session_data:
             return {}
         
-        emotion_timeline = self.session_data[session_id]["emotion_timeline"]
+        emotion_timeline = self.session_data[session_id]["emotions"]
         summary = self.emotion_service.calculate_summary(emotion_timeline)
         
         return {
