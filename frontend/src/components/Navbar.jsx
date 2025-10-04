@@ -15,26 +15,22 @@
 
 // import React from 'react';
 // import './Navbar.css';
-import '../index.css';
 // Import your CSS file where you define the styles below
 // import '../styles/Navbar.css'; 
 
 function Navbar() {
     return (
-    <nav className="navbar">
-        <div className="navbar-brand">
-        <h1>Polly Bird</h1>
-        </div>
-      
-      {/* Navigation Links (Future Pages) */}
-      <div className="navbar-links">
-        {/* If you use React Router, change <a> to <Link to="..."> */}
-        <a href="#debate" className="nav-link">Debate</a>
-        <a href="#history" className="nav-link">History</a>
-        <a href="#settings" className="nav-link">Settings</a>
+      <>
+      <div className='flex flex-row items-center p-4 bg-[#4F8AE2] text-white'>
+      <p>play</p>
+      <p>pause</p>
+      <p>no camera</p>
+      <p>timer?</p>
+      <p>Done</p>
       </div>
+      </>
+        
 
-    </nav>
   );
 }
 
