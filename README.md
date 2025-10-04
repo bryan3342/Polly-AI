@@ -53,7 +53,7 @@ Polly AI combines **speech, tone, and facial expression analysis** into a single
 -  Students preparing for debates  
 -  Professional mock practice interviews  
 -  Public speakers working on delivery  
-- �️Anyone looking to boost communication confidence  
+-  Anyone looking to boost communication confidence  
 
 ---
 
