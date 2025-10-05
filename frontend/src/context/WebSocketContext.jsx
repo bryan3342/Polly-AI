@@ -33,7 +33,22 @@ export const WebSocketProvider = ({ children }) => {
                 case 'emotion_update':
                     setEmotionData(message.data);
                     break;
+                
+                case 'transcription_complete':
+                    const transcriptMessage = { 
+                        role: 'user', 
+                        content: message.transcript, 
+                        timestamp: message.timestamp 
+                    };
+                    setChatHistory(prev => {
+                        // Remove the "[Processing audio...]" message and add the transcript
+                        const filtered = prev.filter(msg => msg.content !== '[Processing audio...]');
+                        return [...filtered, transcriptMessage];
+                    });
+                    break;
+
                 case 'gpt_response':
+                case 'chat_response':  // ADD THIS LINE
                     const gptMessage = { role: 'polly', content: message.message, timestamp: message.timestamp };
                     setChatHistory(prev => [...prev, gptMessage]);
                     break;

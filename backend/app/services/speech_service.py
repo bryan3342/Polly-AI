@@ -1,4 +1,4 @@
-from app.config import config
+from backend.app.config import config
 import io
 from typing import Dict
 

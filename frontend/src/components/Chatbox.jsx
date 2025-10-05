@@ -1,16 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useWebSocket } from '../context/WebSocketContext';
+import ReactMarkdown from 'react-markdown';
 
 const Chatbox = () => {
     const [message, setMessage] = useState('');
     const [isRecording, setIsRecording] = useState(false);
-    const [chatHistory, setChatHistory] = useState([
-        { role: 'system', content: 'Connected to Polly AI. Send a chat message to begin coaching.', timestamp: new Date().toISOString() }
-    ]);
-    const [isConnected] = useState(false);
-    const [error] = useState(null);
     const messagesEndRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
+
+    // Get WebSocket context
+    const { isConnected, chatHistory, error, sendMessage, setChatHistory } = useWebSocket();
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -23,20 +23,22 @@ const Chatbox = () => {
 
     // Send text message
     const handleSendMessage = () => {
-        if (message.trim()) {
-            // Add user message to chat history
-            const userMessage = { role: 'user', content: message, timestamp: new Date().toISOString() };
-            setChatHistory(prev => [...prev, userMessage]);
-            
-            // Simulate AI response (since WebSocket is disabled)
-            setTimeout(() => {
-                const aiResponse = { role: 'polly', content: `I received your message: "${message}". This is a test response since WebSocket is currently disabled.`, timestamp: new Date().toISOString() };
-                setChatHistory(prev => [...prev, aiResponse]);
-            }, 1000);
-            
-            setMessage('');
-        }
-    };
+    if (message.trim() && isConnected) {
+        // Add user message to chat history
+        const userMessage = { role: 'user', content: message, timestamp: new Date().toISOString() };
+        setChatHistory(prev => [...prev, userMessage]);
+        
+        // Send message to backend via WebSocket
+        sendMessage({
+            type: 'chat',
+            message: message
+        });
+        
+        setMessage('');
+    } else if (!isConnected) {
+        console.error("Cannot send message: Not connected to WebSocket");
+    }
+};
 
     // Handle Enter key press
     const handleKeyPress = (e) => {
@@ -57,14 +59,36 @@ const Chatbox = () => {
                 audioChunksRef.current.push(event.data);
             };
 
-            mediaRecorderRef.current.onstop = () => {
-                // Simulate audio message since WebSocket is disabled
-                setChatHistory(prev => [...prev, { role: 'user', content: '[Audio message recorded]', timestamp: new Date().toISOString() }]);
+            mediaRecorderRef.current.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    const base64Audio = reader.result;
+                    
+                    // Send audio to backend for transcription
+                    if (isConnected) {
+                        sendMessage({
+                            type: 'transcribe_audio',
+                            data: base64Audio
+                        });
+                        
+                        setChatHistory(prev => [...prev, { 
+                            role: 'user', 
+                            content: '[Processing audio...]', 
+                            timestamp: new Date().toISOString() 
+                        }]);
+                    }
+                };
+                
                 stream.getTracks().forEach(track => track.stop());
             };
 
             mediaRecorderRef.current.start();
             setIsRecording(true);
+
         } catch (error) {
             console.error('Error accessing microphone:', error);
         }
@@ -105,7 +129,21 @@ const Chatbox = () => {
                         </div>
                     )}
                     <div style={{fontSize: '14px', lineHeight: '1.4'}}>
-                        {msg.content}
+                        <ReactMarkdown
+                            components={{
+                                strong: ({node, ...props}) => <strong style={{fontWeight: 'bold'}} {...props} />,
+                                em: ({node, ...props}) => <em style={{fontStyle: 'italic'}} {...props} />,
+                                h1: ({node, ...props}) => <h1 style={{fontSize: '1.5em', fontWeight: 'bold', marginTop: '0.5em', marginBottom: '0.5em'}} {...props} />,
+                                h2: ({node, ...props}) => <h2 style={{fontSize: '1.3em', fontWeight: 'bold', marginTop: '0.4em', marginBottom: '0.4em'}} {...props} />,
+                                h3: ({node, ...props}) => <h3 style={{fontSize: '1.1em', fontWeight: 'bold', marginTop: '0.3em', marginBottom: '0.3em'}} {...props} />,
+                                ul: ({node, ...props}) => <ul style={{marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em'}} {...props} />,
+                                ol: ({node, ...props}) => <ol style={{marginLeft: '1.5em', marginTop: '0.5em', marginBottom: '0.5em'}} {...props} />,
+                                li: ({node, ...props}) => <li style={{marginBottom: '0.25em'}} {...props} />,
+                                p: ({node, ...props}) => <p style={{marginBottom: '0.5em'}} {...props} />,
+                            }}
+                        >
+                            {msg.content}
+                        </ReactMarkdown>
                     </div>
                     {msg.timestamp && (
                         <div style={{fontSize: '10px', opacity: 0.5, marginTop: '4px'}}>

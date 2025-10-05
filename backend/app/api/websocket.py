@@ -7,12 +7,11 @@ from PIL import Image
 from io import BytesIO
 from typing import Dict
 from datetime import datetime
-from app.services.emotion_service import EmotionService
-from app.services.chat_service import ChatService
-from app.services.speech_service import SpeechService
-from app.services.topic_service import TopicService
-from app.services.voice_analysis_service import VoiceAnalysisService
-from app.models.session import SessionModel
+from backend.app.services.emotion_service import EmotionService
+from backend.app.services.chat_service import ChatService
+from backend.app.services.speech_service import SpeechService
+from backend.app.services.topic_service import TopicService
+from backend.app.services.voice_analysis_service import VoiceAnalysisService
 
 class ConnectionManager:
     def __init__(self):
@@ -199,7 +198,38 @@ class ConnectionManager:
         
         session["recording_state"] = "complete"
         print(f"Analysis complete for session {session_id}")
-    
+
+    async def transcribe_and_send(self, session_id: str, audio_data: str):
+        """Transcribe audio and send back as text"""
+        try:
+            # Decode base64 audio data
+            if ',' in audio_data:
+                audio_data = audio_data.split(',')[1]
+            
+            audio_bytes = base64.b64decode(audio_data)
+            
+            # Transcribe the audio
+            transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
+            transcript_text = transcript_data.get('text', 'Could not transcribe audio')
+            
+            # Send transcription back to client
+            await self.send_message(session_id, {
+                "type": "transcription_complete",
+                "transcript": transcript_text,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            print(f"Audio transcribed for session {session_id}: {transcript_text[:50]}...")
+            
+        except Exception as e:
+            print(f"Error transcribing audio: {str(e)}")
+            await self.send_message(session_id, {
+                "type": "transcription_complete",
+                "transcript": "[Error transcribing audio]",
+                "timestamp": datetime.now().isoformat()
+            })
+
+
     async def process_audio_chunk(self, session_id: str, audio_data: str):
         """Receive and store audio chunks during recording"""
         if session_id not in self.session_data:
@@ -219,6 +249,37 @@ class ConnectionManager:
             
         except Exception as e:
             print(f"Error processing audio chunk: {str(e)}")
+
+    async def transcribe_and_send(self, session_id: str, audio_data: str):
+        """Transcribe audio and send back as text"""
+        try:
+            # Decode base64 audio data
+            if ',' in audio_data:
+                audio_data = audio_data.split(',')[1]
+            
+            audio_bytes = base64.b64decode(audio_data)
+            
+            # Transcribe the audio
+            transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
+            transcript_text = transcript_data.get('text', 'Could not transcribe audio')
+            
+            # Send transcription back to client
+            await self.send_message(session_id, {
+                "type": "transcription_complete",
+                "transcript": transcript_text,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            print(f"Audio transcribed for session {session_id}: {transcript_text[:50]}...")
+            
+        except Exception as e:
+            print(f"Error transcribing audio: {str(e)}")
+            await self.send_message(session_id, {
+                "type": "transcription_complete",
+                "transcript": "[Error transcribing audio]",
+                "timestamp": datetime.now().isoformat()
+            })
+
     
     async def generate_feedback(self, session_id: str, transcript_data: Dict, 
                                 speech_analysis: Dict, voice_analysis: Dict,

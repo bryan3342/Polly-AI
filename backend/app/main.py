@@ -1,13 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.websocket import manager
-from app.database import init_db
+from backend.app.api.websocket import manager
+
 import json
 
 app = FastAPI(title="Polly AI Debate Coach")
-
-# Initialize database
-init_db()
 
 # CORS middleware
 app.add_middleware(
@@ -60,6 +57,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 await manager.process_chat_message(
                     session_id,
                     message.get("message")
+                )
+            
+            elif message_type == "transcribe_audio":
+                # Transcribe audio and send back as text
+                await manager.transcribe_and_send(
+                    session_id,
+                    message.get("data")
                 )
             
             elif message_type == "request_new_topic":
