@@ -18,18 +18,13 @@ export default function FaceDetection() {
       video.srcObject = stream;
       await new Promise((res) => (video.onloadedmetadata = res));
       await video.play();
-
-      // after layout applies, sync canvas to the container size
       requestAnimationFrame(syncOverlaySize);
     }
 
     function syncOverlaySize() {
       const container = containerRef.current;
       const canvas = canvasRef.current;
-
-      // use the container’s on-screen size (matches what the user sees)
       const { width, height } = container.getBoundingClientRect();
-
       canvas.width = Math.round(width);
       canvas.height = Math.round(height);
       canvas.style.width = `${width}px`;
@@ -56,7 +51,6 @@ export default function FaceDetection() {
         if (resized.length) {
           faceapi.draw.drawDetections(canvas, resized);
         }
-
         rafId = requestAnimationFrame(tick);
       };
 
@@ -66,8 +60,6 @@ export default function FaceDetection() {
     (async () => {
       await setupVideo();
       await startDetection();
-
-      // keep canvas synced if layout changes
       window.addEventListener("resize", syncOverlaySize);
     })();
 
@@ -84,30 +76,33 @@ export default function FaceDetection() {
 
   return (
     <div
-  ref={containerRef}
-  style={{
-    position: "relative",
-    width: 899,
-    height: 816,
-    minWidth: 899,
-    minHeight: 816,
-    maxWidth: 899,
-    maxHeight: 816,
-    flex: "0 0 899px",
-    overflow: "hidden",
-    border: "3px solid rgba(148,163,184,0.6)",
-    borderRadius: 8,
-    background: "#000",
-  }}
->
-
+      ref={containerRef}
+      style={{
+        position: "relative",
+        width: 899,
+        height: 716,
+        minWidth: 899,
+        minHeight: 716,
+        maxWidth: 899,
+        maxHeight: 716,
+        flex: "0 0 899px",
+        overflow: "hidden",
+        border: "3px solid rgba(148,163,184,0.6)",
+        borderRadius: 8,
+        background: "#000",
+      }}
+    >
       <video
         ref={videoRef}
         autoPlay
         muted
         playsInline
-        // fill the frame; will crop to preserve aspect (Figma look)
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover", // same “crop” look as your Figma
+          display: "block",
+        }}
       />
       <canvas
         ref={canvasRef}

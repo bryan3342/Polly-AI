@@ -14,7 +14,7 @@ function App() {
           width: '100%',
         }}
       >
-        <div className="flex flex-row justify-around pt-10">
+        <div className="flex flex-row justify-center gap-8 pt-10 px-4">
           <FaceDetection />
           <Chatbox />
         </div>
