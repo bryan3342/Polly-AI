@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
+<<<<<<< HEAD
   plugins: [react(), tailwindcss()],
   theme: {
     extend: {
@@ -13,3 +13,7 @@ export default defineConfig({
     },
   },
 })
+=======
+  plugins: [react()],
+})
+>>>>>>> bb23d5235afa54507dbb3480bfb6baa723475251
