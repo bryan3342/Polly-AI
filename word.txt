@@ -1,0 +1,12 @@
+ChatBox.jsx
+WebSocketContext.jsx
+frontend/src/App.jsx
+frontend/src/components/AudioRecorder.jsx
+frontend/src/main.jsx
+backend/app/services/chat_service.py
+backend/app/services/websocket.py
+backend/app/main.py
+backend/app/config.py
+backend/app/__init__.py
+backend/app/services/speech_service.py
+backend/app/services/face_service.py

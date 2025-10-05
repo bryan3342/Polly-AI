@@ -1,6 +1,7 @@
 import './App.css'
 import Navbar from './components/Navbar';
 import Chatbox from './components/Chatbox';
+// import TestChatbox from './components/TestChatbox';
 import FaceDetection from './components/FaceDetection';
 
 function App() {
