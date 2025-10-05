@@ -45,11 +45,18 @@ class ConnectionManager:
         }
         
         print(f"Session {session_id} connected.")
-        
-        # Send the debate topic to the client
+
+        # Send a greeting message with the topic
+        greeting = await self.chat_service.get_gpt_response(
+            session_id,
+            f"Greet the user as Polly AI, their debate coach. Present them with this debate topic: '{topic.get('topic')}'. Ask them to take a stance (for or against) and give them a brief speech (30-60 seconds) defending their position. Be encouraging and explain they can either type or use the microphone to record their response. Make sure to end with letting them know to start when they're ready.",
+            None
+        )
+
         await self.send_message(session_id, {
-            "type": "topic_assigned",
-            "topic": topic
+            "type": "chat_response",
+            "message": greeting,
+            "timestamp": datetime.now().isoformat()
         })
     
     def disconnect(self, session_id: str):

@@ -172,7 +172,7 @@ const Chatbox = () => {
                 borderRadius: '8px 8px 0 0',
                 borderBottom: '1px solid #374151'
             }}>
-                <h3 style={{color: 'white', fontSize: '18px', fontWeight: 'bold', margin: 0}}>Polly AI (Image Maybe)</h3>
+                <h3 style={{color: 'white', fontSize: '18px', fontWeight: 'bold', margin: 0}}>Polly AI</h3>
                 <div style={{display: 'flex', alignItems: 'center', marginTop: '4px'}}>
                     <div style={{
                         width: '8px',
