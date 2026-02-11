@@ -1,0 +1,11 @@
+title: Polly AI
+description: An intelligent AI assistant
+theme: jekyll-theme-primer
+
+plugins:
+  - jekyll-github-metadata
+  - jekyll-seo-tag
+  - jekyll-coffeescript
+
+markdown: kramdown
+permalink: /:year/:month/:day/:title/
