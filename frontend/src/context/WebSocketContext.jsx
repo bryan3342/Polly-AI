@@ -1,96 +1,123 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 const WebSocketContext = createContext(null);
 
-// Configuration matching your FastAPI backend
-const WS_URL = 'ws://localhost:8000/ws/user-' + Math.random().toString(36).substring(2, 9);
-const FRAME_INTERVAL_MS = 1000; // Matches your backend's FRAME_PROCESS_INTERVAL (1.0 sec)
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const SESSION_ID = 'user-' + Math.random().toString(36).substring(2, 9);
+const WS_URL = `${WS_BASE_URL}/ws/${SESSION_ID}`;
+const FRAME_INTERVAL_MS = 1000;
+const RECONNECT_DELAY_MS = 3000;
 
 export const WebSocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [emotionData, setEmotionData] = useState(null);
     const [chatHistory, setChatHistory] = useState([]);
+    const [currentTopic, setCurrentTopic] = useState(null);
     const [error, setError] = useState(null);
     const wsRef = useRef(null);
+    const reconnectTimerRef = useRef(null);
 
-    // --- WebSocket Connection Management ---
-    useEffect(() => {
-        wsRef.current = new WebSocket(WS_URL);
+    const connect = useCallback(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+        try {
+            wsRef.current = new WebSocket(WS_URL);
+        } catch {
+            setError('Backend server not available. Start the backend with: uvicorn app.main:app --reload');
+            return;
+        }
 
         wsRef.current.onopen = () => {
             setIsConnected(true);
             setError(null);
-            console.log('WebSocket Connected:', WS_URL);
-            // Add initial welcome message
-            setChatHistory([{ role: 'system', content: 'Connected to Polly AI. Send a chat message to begin coaching.' }]);
+            setChatHistory([{ role: 'system', content: 'Connected to Polly AI. Ready to coach!' }]);
         };
 
         wsRef.current.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            
-            // Handle incoming messages based on type
-            switch (message.type) {
-                case 'emotion_update':
-                    setEmotionData(message.data);
-                    break;
-                case 'gpt_response':
-                    const gptMessage = { role: 'polly', content: message.message, timestamp: message.timestamp };
-                    setChatHistory(prev => [...prev, gptMessage]);
-                    break;
-                case 'error':
-                    console.error("WS Error:", message.message);
-                    setError(message.message);
-                    break;
-                case 'session_ended':
-                    console.log('Session Ended:', message.summary);
-                    setChatHistory(prev => [...prev, { role: 'system', content: `Session ended. Summary received: ${JSON.stringify(message.summary.emotion_summary.dominant)}` }]);
-                    break;
-                default:
-                    // console.log('Unhandled message type:', message.type);
+            try {
+                const message = JSON.parse(event.data);
+
+                switch (message.type) {
+                    case 'emotion_update':
+                        setEmotionData(message.data);
+                        break;
+                    case 'chat_response':
+                        setChatHistory(prev => [...prev, {
+                            role: 'polly',
+                            content: message.message,
+                            timestamp: message.timestamp
+                        }]);
+                        break;
+                    case 'topic_assigned':
+                        setCurrentTopic(message.topic);
+                        setChatHistory(prev => [...prev, {
+                            role: 'system',
+                            content: `Debate topic: "${message.topic.topic}" (${message.topic.category} - ${message.topic.difficulty})`
+                        }]);
+                        break;
+                    case 'analysis_complete':
+                        setChatHistory(prev => [...prev, {
+                            role: 'system',
+                            content: `Analysis complete! Score: ${message.results?.feedback || 'See results'}`
+                        }]);
+                        break;
+                    case 'error':
+                        setError(message.message);
+                        break;
+                    case 'session_ended':
+                        setChatHistory(prev => [...prev, {
+                            role: 'system',
+                            content: 'Session ended.'
+                        }]);
+                        break;
+                }
+            } catch {
+                // Ignore malformed messages
             }
         };
 
         wsRef.current.onclose = (event) => {
             setIsConnected(false);
-            console.log('WebSocket Disconnected:', event.code, event.reason);
             if (!event.wasClean) {
-                setError('Connection lost unexpectedly. Check backend server.');
+                setError('Connection lost. Reconnecting...');
+                reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
             }
         };
 
-        wsRef.current.onerror = (err) => {
-            console.error('WebSocket Error:', err);
-            setError('WebSocket connection error.');
-            wsRef.current.close();
-        };
-
-        // Clean up function runs when component unmounts
-        return () => {
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                wsRef.current.close(1000, "Component Unmounted");
-            }
+        wsRef.current.onerror = () => {
+            setError('Cannot connect to backend. Make sure the server is running.');
+            wsRef.current?.close();
         };
     }, []);
 
-    // --- Send Logic ---
-    const sendMessage = (message) => {
-        if (wsRef.current && isConnected) {
+    useEffect(() => {
+        connect();
+
+        return () => {
+            clearTimeout(reconnectTimerRef.current);
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.close(1000, 'Component unmounted');
+            }
+        };
+    }, [connect]);
+
+    const sendMessage = useCallback((message) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify(message));
             return true;
         }
-        console.error("Cannot send message: WebSocket not open.");
         return false;
-    };
+    }, []);
 
-    // --- Context Value ---
     const contextValue = {
         isConnected,
         emotionData,
         chatHistory,
+        currentTopic,
         error,
-        sendMessage, // <--- Used by Camera.jsx
-        FRAME_INTERVAL_MS, // <--- Used by Camera.jsx
-        setChatHistory
+        sendMessage,
+        setChatHistory,
+        FRAME_INTERVAL_MS,
     };
 
     return (
