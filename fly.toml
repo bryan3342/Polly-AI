@@ -1,0 +1,33 @@
+# fly.toml app configuration file generated for polly-ai on 2026-02-11T17:25:24-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'polly-ai'
+primary_region = 'iad'
+
+[build]
+
+[env]
+  STATIC_DIR = '/app/static'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8080
+    path = "/api/health"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "120s"
+
+[[vm]]
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 1

@@ -7,6 +7,23 @@ from PIL import Image
 from io import BytesIO
 from typing import Dict
 from datetime import datetime
+
+
+def sanitize(obj):
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [sanitize(v) for v in obj]
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    return obj
 from app.services.emotion_service import EmotionService
 from app.services.chat_service import ChatService
 from app.services.speech_service import SpeechService
@@ -46,22 +63,41 @@ class ConnectionManager:
         }
         
         print(f"Session {session_id} connected.")
-        
+
         # Send the debate topic to the client
         await self.send_message(session_id, {
             "type": "topic_assigned",
             "topic": topic
         })
+
+        # Send welcome message
+        welcome = (
+            "Welcome to Polly AI — your personal debate coach!\n\n"
+            "Here's how it works:\n"
+            "1. I've assigned you a debate topic above. Hit the refresh button if you'd like a different one.\n"
+            "2. Click **Record** when you're ready to practice your argument.\n"
+            "3. While you speak, I'll track your facial expressions in real time.\n"
+            "4. Click **Stop** when you're done — I'll analyze your speech, vocal tone, and emotions, "
+            "then give you a detailed performance report.\n\n"
+            "You can also type here anytime to ask me for debate tips, counter-arguments, or coaching advice. Let's get started!"
+        )
+        await self.send_message(session_id, {
+            "type": "chat_response",
+            "message": welcome,
+            "timestamp": datetime.now().isoformat()
+        })
     
     def disconnect(self, session_id: str):
         if session_id in self.active_connections:
             del self.active_connections[session_id]
+        if session_id in self.session_data:
             del self.session_data[session_id]
+        self.chat_service.clear_history(session_id)
         print(f"Session {session_id} disconnected.")
     
     async def send_message(self, session_id: str, message: dict):
         if session_id in self.active_connections:
-            await self.active_connections[session_id].send_json(message)
+            await self.active_connections[session_id].send_json(sanitize(message))
         
     def base64_to_image(self, base64_str: str) -> np.ndarray:
         if ',' in base64_str:
@@ -316,7 +352,7 @@ class ConnectionManager:
                 "overall_score": self._calculate_overall_score(speech_analysis, voice_analysis, emotion_summary)
             }
             
-            SessionModel.create_session(session_data)
+            SessionModel.create_session(sanitize(session_data))
             print(f"Session {session_id} saved to database")
             
         except Exception as e:

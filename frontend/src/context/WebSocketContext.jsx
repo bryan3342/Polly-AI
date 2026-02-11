@@ -1,130 +1,84 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
-const WebSocketContext = createContext(null);
+const Ctx = createContext(null);
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-const SESSION_ID = 'user-' + Math.random().toString(36).substring(2, 9);
-const WS_URL = `${WS_BASE_URL}/ws/${SESSION_ID}`;
-const FRAME_INTERVAL_MS = 1000;
-const RECONNECT_DELAY_MS = 3000;
+function getWsBase() {
+    if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${window.location.host}`;
+}
+const WS_BASE = getWsBase();
+const SID = 'user-' + Math.random().toString(36).slice(2, 9);
+const WS_URL = `${WS_BASE}/ws/${SID}`;
+const FRAME_MS = 1000;
 
-export const WebSocketProvider = ({ children }) => {
-    const [isConnected, setIsConnected] = useState(false);
-    const [emotionData, setEmotionData] = useState(null);
-    const [chatHistory, setChatHistory] = useState([]);
-    const [currentTopic, setCurrentTopic] = useState(null);
-    const [error, setError] = useState(null);
-    const wsRef = useRef(null);
-    const reconnectTimerRef = useRef(null);
+export function WebSocketProvider({ children }) {
+    const [connected, setConnected]     = useState(false);
+    const [emotion, setEmotion]         = useState(null);
+    const [chat, setChat]               = useState([]);
+    const [topic, setTopic]             = useState(null);
+    const [processing, setProcessing]   = useState(false);
+    const [error, setError]             = useState(null);
+    const ws   = useRef(null);
+    const reco = useRef(null);
 
+    /* ── connect ─────────────────────────────────── */
     const connect = useCallback(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) return;
+        if (ws.current?.readyState === WebSocket.OPEN) return;
+        try { ws.current = new WebSocket(WS_URL); }
+        catch { setError('Backend not reachable.'); return; }
 
-        try {
-            wsRef.current = new WebSocket(WS_URL);
-        } catch {
-            setError('Backend server not available. Start the backend with: uvicorn app.main:app --reload');
-            return;
-        }
+        ws.current.onopen = () => { setConnected(true); setError(null); };
 
-        wsRef.current.onopen = () => {
-            setIsConnected(true);
-            setError(null);
-            setChatHistory([{ role: 'system', content: 'Connected to Polly AI. Ready to coach!' }]);
-        };
-
-        wsRef.current.onmessage = (event) => {
-            try {
-                const message = JSON.parse(event.data);
-
-                switch (message.type) {
-                    case 'emotion_update':
-                        setEmotionData(message.data);
-                        break;
-                    case 'chat_response':
-                        setChatHistory(prev => [...prev, {
-                            role: 'polly',
-                            content: message.message,
-                            timestamp: message.timestamp
-                        }]);
-                        break;
-                    case 'topic_assigned':
-                        setCurrentTopic(message.topic);
-                        setChatHistory(prev => [...prev, {
-                            role: 'system',
-                            content: `Debate topic: "${message.topic.topic}" (${message.topic.category} - ${message.topic.difficulty})`
-                        }]);
-                        break;
-                    case 'analysis_complete':
-                        setChatHistory(prev => [...prev, {
-                            role: 'system',
-                            content: `Analysis complete! Score: ${message.results?.feedback || 'See results'}`
-                        }]);
-                        break;
-                    case 'error':
-                        setError(message.message);
-                        break;
-                    case 'session_ended':
-                        setChatHistory(prev => [...prev, {
-                            role: 'system',
-                            content: 'Session ended.'
-                        }]);
-                        break;
-                }
-            } catch {
-                // Ignore malformed messages
+        ws.current.onmessage = (e) => {
+            let m; try { m = JSON.parse(e.data); } catch { return; }
+            switch (m.type) {
+                case 'emotion_update':    setEmotion(m.data); break;
+                case 'topic_assigned':    setTopic(m.topic); break;
+                case 'recording_started': break;
+                case 'recording_stopped': setProcessing(true);
+                    setChat(p => [...p, { role: 'system', content: 'Analyzing your performance...' }]); break;
+                case 'analysis_complete':
+                    setProcessing(false);
+                    setChat(p => [...p, { role: 'assistant', content: m.results?.feedback || 'Analysis complete.' }]); break;
+                case 'chat_response':
+                    setChat(p => [...p, { role: 'assistant', content: m.message }]); break;
+                case 'error': setError(m.message); break;
             }
         };
 
-        wsRef.current.onclose = (event) => {
-            setIsConnected(false);
-            if (!event.wasClean) {
-                setError('Connection lost. Reconnecting...');
-                reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
-            }
+        ws.current.onclose = (e) => {
+            setConnected(false);
+            if (!e.wasClean) { setError('Lost connection. Reconnecting...'); reco.current = setTimeout(connect, 3000); }
         };
-
-        wsRef.current.onerror = () => {
-            setError('Cannot connect to backend. Make sure the server is running.');
-            wsRef.current?.close();
-        };
+        ws.current.onerror = () => { setError('Cannot reach backend.'); ws.current?.close(); };
     }, []);
 
     useEffect(() => {
         connect();
-
-        return () => {
-            clearTimeout(reconnectTimerRef.current);
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.close(1000, 'Component unmounted');
-            }
-        };
+        return () => { clearTimeout(reco.current); ws.current?.readyState === WebSocket.OPEN && ws.current.close(1000); };
     }, [connect]);
 
-    const sendMessage = useCallback((message) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify(message));
-            return true;
-        }
-        return false;
+    /* ── senders ─────────────────────────────────── */
+    const send = useCallback((msg) => {
+        if (ws.current?.readyState !== WebSocket.OPEN) return false;
+        ws.current.send(JSON.stringify(msg));
+        return true;
     }, []);
 
-    const contextValue = {
-        isConnected,
-        emotionData,
-        chatHistory,
-        currentTopic,
-        error,
-        sendMessage,
-        setChatHistory,
-        FRAME_INTERVAL_MS,
-    };
+    const sendFrame      = useCallback((b64) => send({ type: 'frame', data: b64, timestamp: Date.now() / 1000 }), [send]);
+    const sendChat       = useCallback((txt) => { setChat(p => [...p, { role: 'user', content: txt }]); send({ type: 'chat', message: txt }); }, [send]);
+    const startRecording = useCallback(() => send({ type: 'start_recording' }), [send]);
+    const stopRecording  = useCallback(() => send({ type: 'stop_recording' }),  [send]);
+    const sendAudio      = useCallback((b64) => send({ type: 'audio_complete', data: b64 }), [send]);
+    const newTopic       = useCallback(() => send({ type: 'request_new_topic' }), [send]);
 
     return (
-        <WebSocketContext.Provider value={contextValue}>
+        <Ctx.Provider value={{ connected, emotion, chat, topic, processing, error,
+            sendFrame, sendChat, startRecording, stopRecording, sendAudio, newTopic, FRAME_MS }}>
             {children}
-        </WebSocketContext.Provider>
+        </Ctx.Provider>
     );
-};
+}
 
-export const useWebSocket = () => useContext(WebSocketContext);
+export const useWS = () => useContext(Ctx);

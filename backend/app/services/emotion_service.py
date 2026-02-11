@@ -45,10 +45,10 @@ class EmotionService:
             analysis = result[0] if isinstance(result, list) else result
 
             emotions = analysis.get('emotion', {})
-            # Normalize scores to 0-1 range
-            emotion_scores = {k: v / 100.0 for k, v in emotions.items()}
-            dominant = analysis.get('dominant_emotion', 'neutral')
-            confidence = emotion_scores.get(dominant, 0.0)
+            # Normalize scores to 0-1 range and convert numpy float32 to Python float
+            emotion_scores = {k: float(v / 100.0) for k, v in emotions.items()}
+            dominant = str(analysis.get('dominant_emotion', 'neutral'))
+            confidence = float(emotion_scores.get(dominant, 0.0))
 
             return {
                 'emotions': emotion_scores,
@@ -89,7 +89,7 @@ class EmotionService:
 
         count = len(valid_entries)
         emotion_averages = {
-            emotion: sum_val / count
+            emotion: float(sum_val / count)
             for emotion, sum_val in emotion_sums.items()
         }
 
@@ -97,9 +97,9 @@ class EmotionService:
 
         return {
             'averages': emotion_averages,
-            'dominant': dominant,
+            'dominant': str(dominant),
             'total': len(emotion_timeline),
             'frames_with_faces': len(valid_entries),
-            'confidence': emotion_averages.get(dominant, 0),
-            'detections': len(valid_entries) / len(emotion_timeline)
+            'confidence': float(emotion_averages.get(dominant, 0)),
+            'detections': float(len(valid_entries) / len(emotion_timeline))
         }
