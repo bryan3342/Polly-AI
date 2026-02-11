@@ -9,7 +9,7 @@ class ChatService:
             print("Warning: GEMINI_API_KEY is not set.")
         
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         print("ChatService initialized with Gemini API.")
 
     async def get_gpt_response(self, session_id: str, prompt: str, emotion_summary: Dict = None):

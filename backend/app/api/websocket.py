@@ -78,7 +78,6 @@ class ConnectionManager:
             frame = self.base64_to_image(frame_data)
             result = self.emotion_service.analyze_frame(frame)
             
-            # ADD THIS CHECK
             if result is None:
                 result = {
                     'emotions': None,
@@ -117,7 +116,7 @@ class ConnectionManager:
                 "data": error_result,
                 "frame_number": self.session_data[session_id].get("frame_count", 0)
             })
-        return error_result
+            return error_result
     
     async def start_recording(self, session_id: str):
         """Start recording debate session"""
