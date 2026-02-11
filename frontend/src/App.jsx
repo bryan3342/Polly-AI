@@ -1,32 +1,68 @@
-import './App.css'
-import Navbar from './components/Navbar';
-import Camera from './components/Camera';
-import Chatbox from './components/Chatbox';
-import { useWebSocket } from './context/WebSocketContext';
+import { useState, useEffect, useCallback } from 'react';
+import { useWS } from './context/WebSocketContext';
+import VideoBox from './components/VideoBox';
+import Chatbox  from './components/Chatbox';
+import Toolbar  from './components/Toolbar';
 
-function App() {
-  const { isConnected, error } = useWebSocket();
+export default function App() {
+    const { connected, error, startRecording, stopRecording, sendAudio } = useWS();
 
-  return (
-    <>
-      <div style={{
-        backgroundColor: '#0A0F26',
-        minHeight: '100vh',
-        width: '100%'
-      }}>
-        {error && (
-          <div className="bg-red-900/50 text-red-200 text-center py-2 text-sm">
-            {error}
-          </div>
-        )}
-        <div className="flex flex-col lg:flex-row justify-around items-start gap-4 p-4 pt-6 pb-28">
-          <Camera />
-          <Chatbox />
+    const [recording, setRecording] = useState(false);
+    const [cameraOn, setCameraOn]   = useState(true);
+    const [muted, setMuted]         = useState(false);
+    const [time, setTime]           = useState(0);
+
+    /* timer */
+    useEffect(() => {
+        if (!recording) return;
+        setTime(0);
+        const id = setInterval(() => setTime(t => t + 1), 1000);
+        return () => clearInterval(id);
+    }, [recording]);
+
+    /* handlers */
+    const handleRecord = useCallback(() => { setRecording(true);  startRecording(); }, [startRecording]);
+    const handleStop   = useCallback(() => { setRecording(false); }, []);
+    const handleAudio  = useCallback((b64) => { sendAudio(b64); stopRecording(); }, [sendAudio, stopRecording]);
+
+    return (
+        <div className="app">
+            {error && <div className="error-banner">{error}</div>}
+
+            {/* ── header ─────────────────────── */}
+            <header className="header">
+                <div className="header-brand">
+                    <h1>Polly AI</h1>
+                    <span className="header-badge">Debate Coach</span>
+                </div>
+                <div className="header-status">
+                    <span className={`status-dot ${connected ? 'on' : 'off'}`} />
+                    {connected ? 'Connected' : 'Offline'}
+                </div>
+            </header>
+
+            {/* ── main: video + chat ─────────── */}
+            <main className="main">
+                <VideoBox
+                    isRecording={recording}
+                    cameraOn={cameraOn}
+                    muted={muted}
+                    onAudioReady={handleAudio}
+                />
+                <Chatbox />
+            </main>
+
+            {/* ── toolbar ────────────────────── */}
+            <Toolbar
+                isRecording={recording}
+                cameraOn={cameraOn}
+                muted={muted}
+                time={time}
+                onRecord={handleRecord}
+                onStop={handleStop}
+                onCam={() => setCameraOn(v => !v)}
+                onMic={() => setMuted(v => !v)}
+            />
         </div>
-      </div>
-      <Navbar />
-    </>
-  );
+    );
 }
-
-export default App
