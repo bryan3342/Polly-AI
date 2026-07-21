@@ -176,13 +176,24 @@ class ConnectionManager:
             return
         
         session = self.session_data[session_id]
+
+        # Ignore a stop that arrives without an active recording (e.g. stop before
+        # start). recording_start_time is None until start_recording runs, so
+        # computing duration below would raise TypeError and kill the WS loop.
+        if session["recording_state"] != "recording" or session.get("recording_start_time") is None:
+            await self.send_message(session_id, {
+                "type": "recording_stopped",
+                "message": "No active recording to stop."
+            })
+            return
+
         session["recording_state"] = "processing"
-        
+
         await self.send_message(session_id, {
             "type": "recording_stopped",
             "message": "Processing your debate..."
         })
-        
+
         # Calculate duration
         duration = (datetime.now() - session["recording_start_time"]).total_seconds()
         
