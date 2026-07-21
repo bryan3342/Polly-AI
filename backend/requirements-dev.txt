@@ -1,0 +1,5 @@
+# Dependencies for the unit test suite (backend/tests/unit).
+# Heavy runtime deps (tensorflow, deepface, librosa, opencv) are deliberately
+# NOT installed in CI — unit tests must mock anything that needs them.
+pytest>=8.0
+python-dotenv>=1.0.0
