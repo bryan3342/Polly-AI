@@ -124,17 +124,19 @@ class ConnectionManager:
                     'timestamp': datetime.now().isoformat()
                 }
             
+            frame_count = 0
             if session_id in self.session_data:
                 self.session_data[session_id]["frame_count"] += 1
                 if result.get("face_detected"):
                     self.session_data[session_id]["emotions"].append(result)
-            
+                frame_count = self.session_data[session_id]["frame_count"]
+
             await self.send_message(session_id, {
                 "type": "emotion_update",
                 "data": result,
-                "frame_number": self.session_data[session_id].get("frame_count", 0)
+                "frame_number": frame_count
             })
-            
+
             return result
             
         except Exception as e:
@@ -150,7 +152,7 @@ class ConnectionManager:
             await self.send_message(session_id, {
                 "type": "emotion_update",
                 "data": error_result,
-                "frame_number": self.session_data[session_id].get("frame_count", 0)
+                "frame_number": self.session_data.get(session_id, {}).get("frame_count", 0)
             })
             return error_result
     
