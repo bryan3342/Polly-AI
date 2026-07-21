@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.api.websocket import manager
+from app.config import config
 from app.services.topic_service import TopicService
 from app.database import init_db
 import json
@@ -15,10 +16,11 @@ init_db()
 
 topic_service = TopicService()
 
-# CORS middleware
+# CORS middleware — explicit origins only; "*" with allow_credentials=True is
+# invalid per the CORS spec and over-permissive (issue #22)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
