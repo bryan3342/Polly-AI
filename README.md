@@ -181,6 +181,22 @@ The frontend auto-detects the WebSocket URL from `window.location`, so no config
 
 ---
 
+## Repository & Branches
+
+This repository is a **single consolidated tree** — one FastAPI `backend/`, one React/Vite
+`frontend/`, and shared `docs/`, all committed on **`main`, which is the single source of
+truth**. There are no nested or duplicate app copies.
+
+Older branches (`Napoli`, `demo-ready-branch`, `final`, `feature/frontend-fixes`,
+`backup/local-main-*`) predate this consolidation (last active 2025-10) and are being
+archived/removed — do not branch from them. Start all new work from `main`:
+
+```bash
+git switch -c my-feature origin/main
+```
+
+---
+
 ## Project Structure
 
 ```
