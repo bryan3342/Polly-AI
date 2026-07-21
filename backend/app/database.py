@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, JSON, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 # Create database URL
@@ -23,7 +23,7 @@ class DebateSession(Base):
     topic_id = Column(Integer)
     topic_text = Column(String)
     duration = Column(Float)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     # Transcript data
     transcript = Column(Text)
