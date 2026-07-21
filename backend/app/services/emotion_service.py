@@ -7,16 +7,17 @@ from datetime import datetime
 class EmotionService:
     def __init__(self):
         self.emotions = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"]
+        # Load the Haar cascade once and reuse it across frames (frames arrive ~1/sec
+        # per client, so re-reading the XML from disk every call was wasteful).
+        self.face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
         print("Emotion Detection Model Loading")
 
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
         try:
-            face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            )
-
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+            faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
 
             if len(faces) == 0:
                 return {
