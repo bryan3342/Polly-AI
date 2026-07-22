@@ -1,8 +1,18 @@
 name: Deploy Frontend to GitHub Pages
 
+# DISABLED (manual-trigger only).
+#
+# This workflow publishes the frontend on its own to GitHub Pages, where it
+# cannot work: the client derives its WebSocket URL from window.location, and
+# the Pages host serves no backend, so the app loads and then sits disconnected.
+# Asset paths are also wrong there because `base` is not set in vite.config.js.
+#
+# The supported deployment is the single-service Fly.io build (fly-deploy.yml +
+# Dockerfile), where FastAPI serves the built SPA from the same origin.
+#
+# This file should most likely be deleted outright; it is left here, triggerable
+# only by hand, so that removal stays an explicit decision.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
