@@ -1,6 +1,10 @@
-from datetime import datetime
+import logging
 from typing import Dict, Optional
+
 from app.database import DebateSession, SessionLocal
+
+logger = logging.getLogger(__name__)
+
 
 class SessionModel:
     """Handle database operations for debate sessions"""
@@ -29,8 +33,8 @@ class SessionModel:
             db.commit()
             db.refresh(session)
             return session
-        except Exception as e:
-            print(f"Error creating session: {e}")
+        except Exception:
+            logger.exception("Error creating session record")
             db.rollback()
             return None
         finally:
@@ -62,17 +66,21 @@ class SessionModel:
             sessions = db.query(DebateSession).all()
             if not sessions:
                 return {}
-            
+
             total_sessions = len(sessions)
-            avg_confidence = sum(s.confidence_score for s in sessions if s.confidence_score) / total_sessions
-            avg_score = sum(s.overall_score for s in sessions if s.overall_score) / total_sessions
-            total_words = sum(s.word_count for s in sessions if s.word_count)
-            
+
+            def _mean(values):
+                # Average over the sessions that actually recorded a value. Dividing
+                # by total_sessions instead would understate the average whenever any
+                # session is missing that metric.
+                present = [v for v in values if v is not None]
+                return round(sum(present) / len(present), 1) if present else None
+
             return {
                 "total_sessions": total_sessions,
-                "average_confidence": round(avg_confidence, 1),
-                "average_score": round(avg_score, 1),
-                "total_words_spoken": total_words
+                "average_confidence": _mean(s.confidence_score for s in sessions),
+                "average_score": _mean(s.overall_score for s in sessions),
+                "total_words_spoken": sum(s.word_count or 0 for s in sessions),
             }
         finally:
             db.close()

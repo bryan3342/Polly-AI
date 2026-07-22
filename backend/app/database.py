@@ -1,10 +1,15 @@
+import logging
+from datetime import datetime, timezone
+
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, JSON, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime, timezone
-import os
 
-# Create database URL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./debate_sessions.db")
+from app.config import config
+
+logger = logging.getLogger(__name__)
+
+# Read through the central config so the default is defined in exactly one place.
+DATABASE_URL = config.DATABASE_URL
 
 # Create engine
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
@@ -45,7 +50,7 @@ class DebateSession(Base):
 # Create tables
 def init_db():
     Base.metadata.create_all(bind=engine)
-    print("Database tables created.")
+    logger.info("Database tables created.")
 
 # Get database session
 def get_db():
