@@ -1,76 +1,138 @@
-from fastapi import WebSocket, WebSocketDisconnect
-import json
+"""WebSocket transport layer.
+
+This module owns connection lifecycle and message fan-out only. Image decoding,
+JSON sanitization, domain scoring, and prompt construction live in their own
+modules so this layer stays focused on transport.
+"""
+
 import base64
-import numpy as np
-import cv2
-from PIL import Image
-from io import BytesIO
-from typing import Dict
+import logging
 from datetime import datetime
+from typing import Dict, Optional
 
+from fastapi import WebSocket
 
-def sanitize(obj):
-    """Recursively convert numpy types to native Python types for JSON serialization."""
-    if isinstance(obj, dict):
-        return {k: sanitize(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [sanitize(v) for v in obj]
-    if isinstance(obj, (np.integer,)):
-        return int(obj)
-    if isinstance(obj, (np.floating,)):
-        return float(obj)
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    return obj
-from app.services.emotion_service import EmotionService
+from app.config import config
+from app.models.session import SessionModel
+from app.services import emotion_service as emotion_module
+from app.services import scoring_service
 from app.services.chat_service import ChatService
+from app.services.emotion_service import EmotionService
 from app.services.speech_service import SpeechService
 from app.services.topic_service import TopicService
 from app.services.voice_analysis_service import VoiceAnalysisService
-from app.models.session import SessionModel
+from app.utils.imaging import base64_to_image
+from app.utils.serialization import sanitize
+
+logger = logging.getLogger(__name__)
+
+
+def _build_feedback_prompt(topic: Dict, duration: float, transcript_data: Dict,
+                           speech_analysis: Dict, tone_description: str,
+                           voice_analysis: Dict, emotion_summary: Dict) -> str:
+    """Compose the post-session analysis prompt sent to the coaching model."""
+    emotions = (emotion_summary or {}).get("emotion_summary", {}) or {}
+    confidence = (voice_analysis or {}).get("confidence_score")
+    detections = emotions.get("detections")
+
+    caveat = ""
+    if transcript_data.get("is_mock"):
+        caveat = (
+            "\nNOTE: Speech-to-text is not enabled, so the transcript and the metrics "
+            "derived from it are placeholders. Do not comment on the wording of the "
+            "transcript; focus your feedback on vocal delivery and composure.\n"
+        )
+
+    return f"""
+        Analyze this debate practice session and provide constructive feedback.
+        {caveat}
+        DEBATE TOPIC: {topic.get('topic')}
+        DURATION: {duration:.1f} seconds
+
+        TRANSCRIPT:
+        {transcript_data.get('text', 'No transcript available')}
+
+        SPEECH METRICS:
+        - Word count: {speech_analysis.get('word_count', 0)}
+        - Speaking pace: {speech_analysis.get('words_per_minute', 0)} words/minute
+        - Filler words: {speech_analysis.get('filler_word_count', 0)} ({speech_analysis.get('filler_percentage', 0)}%)
+        - Average pause duration: {speech_analysis.get('average_pause_duration', 0)} seconds
+
+        VOICE ANALYSIS:
+        - Tone: {tone_description}
+        - Confidence score: {'unavailable' if confidence is None else f'{confidence}/100'}
+
+        EMOTIONAL STATE:
+        - Dominant emotion: {emotions.get('dominant', 'not detected')}
+        - Detection rate: {'unavailable' if detections is None else f'{detections:.1%}'}
+
+        Please provide:
+        1. Overall assessment (2-3 sentences)
+        2. Strengths (2-3 specific points)
+        3. Areas for improvement (2-3 specific points)
+        4. Actionable tips for next practice (3-4 concrete suggestions)
+
+        Keep feedback constructive, specific, and encouraging.
+        """
+
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
         self.session_data: Dict[str, dict] = {}
-    
+
         self.emotion_service = EmotionService()
         self.chat_service = ChatService()
         self.speech_service = SpeechService()
         self.topic_service = TopicService()
         self.voice_service = VoiceAnalysisService()
 
+    # ── session state ────────────────────────────────────────────────
+    def get_session(self, session_id: str) -> Optional[dict]:
+        """Return live session state, or None if the session is gone.
+
+        Every handler must go through this rather than indexing session_data
+        directly: a client can disconnect between messages, and an unguarded
+        lookup would raise and tear down an unrelated live connection.
+        """
+        return self.session_data.get(session_id)
+
     async def connect(self, session_id: str, websocket: WebSocket):
         await websocket.accept()
+
+        # A reused session_id would otherwise overwrite the live session's state
+        # and let the older connection's disconnect() delete it out from under
+        # the newer one. Close the previous socket and start clean.
+        existing = self.active_connections.get(session_id)
+        if existing is not None:
+            logger.warning("Session %s reconnected with an id already in use; closing the older socket.", session_id)
+            try:
+                await existing.close(code=1012)  # service restart / superseded
+            except Exception:
+                logger.debug("Could not close superseded socket for %s", session_id, exc_info=True)
+
         self.active_connections[session_id] = websocket
-        
-        # Get a random debate topic
+
         topic = self.topic_service.get_random_topic()
-        
+
         self.session_data[session_id] = {
             "start_time": datetime.now(),
             "frame_count": 0,
             "emotions": [],
-            "faces_detected": 0,
-            "audio_chunks": [],
-            "chat_history": [],
             "topic": topic,
-            "recording_state": "idle",  # idle, recording, processing
+            "recording_state": "idle",  # idle, recording, processing, complete
             "recording_start_time": None,
-            "audio_data": bytearray()
+            "audio_data": bytearray(),
+            "audio_truncated": False,
         }
-        
-        print(f"Session {session_id} connected.")
 
-        # Send the debate topic to the client
+        logger.info("Session %s connected.", session_id)
+
         await self.send_message(session_id, {
             "type": "topic_assigned",
-            "topic": topic
+            "topic": topic,
         })
 
-        # Send welcome message
         welcome = (
             "Welcome to Polly AI — your personal debate coach!\n\n"
             "Here's how it works:\n"
@@ -84,98 +146,112 @@ class ConnectionManager:
         await self.send_message(session_id, {
             "type": "chat_response",
             "message": welcome,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         })
-    
-    def disconnect(self, session_id: str):
-        if session_id in self.active_connections:
-            del self.active_connections[session_id]
-        if session_id in self.session_data:
-            del self.session_data[session_id]
-        self.chat_service.clear_history(session_id)
-        print(f"Session {session_id} disconnected.")
-    
-    async def send_message(self, session_id: str, message: dict):
-        if session_id in self.active_connections:
-            await self.active_connections[session_id].send_json(sanitize(message))
-        
-    def base64_to_image(self, base64_str: str) -> np.ndarray:
-        if ',' in base64_str:
-            base64_str = base64_str.split(',')[1]
-        
-        img_data = base64.b64decode(base64_str)
-        image = Image.open(BytesIO(img_data))
-        img_array = np.array(image)
-        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-        return img_bgr
 
+    def disconnect(self, session_id: str, websocket: WebSocket = None):
+        """Tear down a session.
+
+        When `websocket` is given, the entry is only removed if it is still the
+        active socket for that id, so a superseded connection closing later
+        cannot evict the live one.
+        """
+        current = self.active_connections.get(session_id)
+        if websocket is not None and current is not None and current is not websocket:
+            logger.info("Ignoring disconnect from superseded socket for session %s", session_id)
+            return
+
+        self.active_connections.pop(session_id, None)
+        self.session_data.pop(session_id, None)
+        self.chat_service.clear_history(session_id)
+        logger.info("Session %s disconnected.", session_id)
+
+    async def send_message(self, session_id: str, message: dict):
+        websocket = self.active_connections.get(session_id)
+        if websocket is None:
+            return
+        await websocket.send_json(sanitize(message))
+
+    # ── frame handling ───────────────────────────────────────────────
     async def process_frame(self, session_id: str, frame_data: str, timestamp: float):
         try:
-            frame = self.base64_to_image(frame_data)
-            result = self.emotion_service.analyze_frame(frame)
-            
-            if result is None:
-                result = {
-                    'emotions': None,
-                    'dominant_emotion': None,
-                    'confidence': 0.0,
-                    'face_detected': False,
-                    'bounding_box': None,
-                    'timestamp': datetime.now().isoformat()
-                }
-            
-            frame_count = 0
-            if session_id in self.session_data:
-                self.session_data[session_id]["frame_count"] += 1
-                if result.get("face_detected"):
-                    self.session_data[session_id]["emotions"].append(result)
-                frame_count = self.session_data[session_id]["frame_count"]
+            frame = base64_to_image(frame_data)
+            result = self.emotion_service.analyze_frame(frame) or emotion_module.empty_result()
+        except Exception:
+            logger.exception("Error processing frame for session %s", session_id)
+            result = emotion_module.empty_result()
 
-            await self.send_message(session_id, {
-                "type": "emotion_update",
-                "data": result,
-                "frame_number": frame_count
-            })
+        session = self.get_session(session_id)
+        frame_count = 0
+        if session is not None:
+            session["frame_count"] += 1
+            frame_count = session["frame_count"]
+            if result.get("face_detected"):
+                emotions = session["emotions"]
+                emotions.append(result)
+                # Bound the timeline so a long-lived session cannot grow the heap
+                # without limit; the summary only needs a representative window.
+                if len(emotions) > config.MAX_EMOTION_FRAMES:
+                    del emotions[:-config.MAX_EMOTION_FRAMES]
 
-            return result
-            
-        except Exception as e:
-            print(f"Error processing frame: {str(e)}")
-            error_result = {
-                'emotions': None,
-                'dominant_emotion': None,
-                'confidence': 0.0,
-                'face_detected': False,
-                'bounding_box': None,
-                'timestamp': datetime.now().isoformat()
-            }
-            await self.send_message(session_id, {
-                "type": "emotion_update",
-                "data": error_result,
-                "frame_number": self.session_data.get(session_id, {}).get("frame_count", 0)
-            })
-            return error_result
-    
+        await self.send_message(session_id, {
+            "type": "emotion_update",
+            "data": result,
+            "frame_number": frame_count,
+        })
+
+    # ── recording lifecycle ──────────────────────────────────────────
     async def start_recording(self, session_id: str):
         """Start recording debate session"""
-        if session_id in self.session_data:
-            self.session_data[session_id]["recording_state"] = "recording"
-            self.session_data[session_id]["recording_start_time"] = datetime.now()
-            self.session_data[session_id]["audio_data"] = bytearray()
-            self.session_data[session_id]["emotions"] = []  # Reset emotions for this recording
-            
-            await self.send_message(session_id, {
-                "type": "recording_started",
-                "timestamp": datetime.now().isoformat()
-            })
-            print(f"Recording started for session {session_id}")
-    
+        session = self.get_session(session_id)
+        if session is None:
+            return
+
+        session.update({
+            "recording_state": "recording",
+            "recording_start_time": datetime.now(),
+            "audio_data": bytearray(),
+            "audio_truncated": False,
+            "emotions": [],  # Reset emotions for this recording
+        })
+
+        await self.send_message(session_id, {
+            "type": "recording_started",
+            "timestamp": datetime.now().isoformat(),
+        })
+        logger.info("Recording started for session %s", session_id)
+
+    async def process_audio_chunk(self, session_id: str, audio_data: str):
+        """Receive and store audio chunks during recording"""
+        session = self.get_session(session_id)
+        if session is None or session["recording_state"] != "recording":
+            return
+
+        try:
+            if ',' in audio_data:
+                audio_data = audio_data.split(',')[1]
+            audio_bytes = base64.b64decode(audio_data)
+        except Exception:
+            logger.exception("Error decoding audio chunk for session %s", session_id)
+            return
+
+        buffer = session["audio_data"]
+        remaining = config.MAX_AUDIO_BYTES - len(buffer)
+        if remaining <= 0:
+            if not session["audio_truncated"]:
+                logger.warning("Audio buffer cap reached for session %s; dropping further audio.", session_id)
+                session["audio_truncated"] = True
+            return
+
+        buffer.extend(audio_bytes[:remaining])
+        if len(audio_bytes) > remaining:
+            session["audio_truncated"] = True
+
     async def stop_recording(self, session_id: str):
         """Stop recording and process the debate"""
-        if session_id not in self.session_data:
+        session = self.get_session(session_id)
+        if session is None:
             return
-        
-        session = self.session_data[session_id]
 
         # Ignore a stop that arrives without an active recording (e.g. stop before
         # start). recording_start_time is None until start_recording runs, so
@@ -183,7 +259,7 @@ class ConnectionManager:
         if session["recording_state"] != "recording" or session.get("recording_start_time") is None:
             await self.send_message(session_id, {
                 "type": "recording_stopped",
-                "message": "No active recording to stop."
+                "message": "No active recording to stop.",
             })
             return
 
@@ -191,220 +267,155 @@ class ConnectionManager:
 
         await self.send_message(session_id, {
             "type": "recording_stopped",
-            "message": "Processing your debate..."
+            "message": "Processing your debate...",
         })
 
-        # Calculate duration
         duration = (datetime.now() - session["recording_start_time"]).total_seconds()
-        
-        # Process audio
         audio_bytes = bytes(session["audio_data"])
-        transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
+
+        transcript_data = self.speech_service.transcribe_audio(audio_bytes)
         speech_analysis = self.speech_service.analyze_speech_patterns(transcript_data)
-        
-        # Voice analysis
+
         voice_analysis = self.voice_service.analyze_audio(audio_bytes)
         tone_description = self.voice_service.get_tone_description(voice_analysis)
-        
-        # Emotion summary
+
         emotion_summary = self.get_session_summary(session_id)
-        
-        # Generate comprehensive feedback
+
         feedback = await self.generate_feedback(
-            session_id,
-            transcript_data,
-            speech_analysis,
-            voice_analysis,
-            tone_description,
-            emotion_summary,
-            duration
+            session_id, duration, transcript_data, speech_analysis,
+            tone_description, voice_analysis, emotion_summary,
         )
-        
-        # Save to database
+
+        overall_score = scoring_service.calculate_overall_score(
+            speech_analysis, voice_analysis, emotion_summary,
+        )
+
         self.save_session_to_db(
-            session_id,
-            transcript_data,
-            speech_analysis,
-            voice_analysis,
-            emotion_summary,
-            feedback,
-            duration
+            session_id, transcript_data, speech_analysis, voice_analysis,
+            emotion_summary, feedback, duration, overall_score,
         )
-        
-        # Send results to client
+
         await self.send_message(session_id, {
             "type": "analysis_complete",
             "results": {
                 "transcript": transcript_data.get("text", ""),
+                "transcript_is_mock": bool(transcript_data.get("is_mock")),
                 "speech_analysis": speech_analysis,
                 "voice_analysis": voice_analysis,
+                "voice_analysis_degraded": bool(voice_analysis.get("degraded")),
                 "tone_description": tone_description,
                 "emotion_summary": emotion_summary,
                 "feedback": feedback,
-                "duration": duration
-            }
+                "duration": duration,
+                "overall_score": overall_score,
+                "audio_truncated": session.get("audio_truncated", False),
+            },
         })
-        
-        session["recording_state"] = "complete"
-        print(f"Analysis complete for session {session_id}")
-    
-    async def process_audio_chunk(self, session_id: str, audio_data: str):
-        """Receive and store audio chunks during recording"""
-        if session_id not in self.session_data:
-            return
-        
-        session = self.session_data[session_id]
-        if session["recording_state"] != "recording":
-            return
-        
-        try:
-            # Decode base64 audio data
-            if ',' in audio_data:
-                audio_data = audio_data.split(',')[1]
-            
-            audio_bytes = base64.b64decode(audio_data)
-            session["audio_data"].extend(audio_bytes)
-            
-        except Exception as e:
-            print(f"Error processing audio chunk: {str(e)}")
-    
-    async def generate_feedback(self, session_id: str, transcript_data: Dict, 
-                                speech_analysis: Dict, voice_analysis: Dict,
-                                tone_description: str, emotion_summary: Dict, 
-                                duration: float) -> str:
+
+        # The session may have been torn down while the analysis was awaiting.
+        session = self.get_session(session_id)
+        if session is not None:
+            session["recording_state"] = "complete"
+        logger.info("Analysis complete for session %s", session_id)
+
+    # ── chat + summaries ─────────────────────────────────────────────
+    async def generate_feedback(self, session_id: str, duration: float, transcript_data: Dict,
+                                speech_analysis: Dict, tone_description: str,
+                                voice_analysis: Dict, emotion_summary: Dict) -> str:
         """Generate comprehensive AI feedback"""
-        session = self.session_data[session_id]
-        topic = session["topic"]
-        
-        prompt = f"""
-        Analyze this debate practice session and provide constructive feedback.
-        
-        DEBATE TOPIC: {topic.get('topic')}
-        DURATION: {duration:.1f} seconds
-        
-        TRANSCRIPT:
-        {transcript_data.get('text', 'No transcript available')}
-        
-        SPEECH METRICS:
-        - Word count: {speech_analysis.get('word_count', 0)}
-        - Speaking pace: {speech_analysis.get('words_per_minute', 0)} words/minute
-        - Filler words: {speech_analysis.get('filler_word_count', 0)} ({speech_analysis.get('filler_percentage', 0)}%)
-        - Average pause duration: {speech_analysis.get('average_pause_duration', 0)} seconds
-        
-        VOICE ANALYSIS:
-        - Tone: {tone_description}
-        - Confidence score: {voice_analysis.get('confidence_score', 0)}/100
-        
-        EMOTIONAL STATE:
-        - Dominant emotion: {emotion_summary.get('emotion_summary', {}).get('dominant', 'neutral')}
-        - Detection rate: {emotion_summary.get('emotion_summary', {}).get('detections', 0):.1%}
-        
-        Please provide:
-        1. Overall assessment (2-3 sentences)
-        2. Strengths (2-3 specific points)
-        3. Areas for improvement (2-3 specific points)
-        4. Actionable tips for next practice (3-4 concrete suggestions)
-        
-        Keep feedback constructive, specific, and encouraging.
-        """
-        
-        return await self.chat_service.get_gpt_response(session_id, prompt, emotion_summary)
-    
+        session = self.get_session(session_id)
+        topic = (session or {}).get("topic", {})
+
+        prompt = _build_feedback_prompt(
+            topic, duration, transcript_data, speech_analysis,
+            tone_description, voice_analysis, emotion_summary,
+        )
+        # record_history=False: this machine-generated prompt should not become
+        # part of the user-visible conversation context.
+        return await self.chat_service.get_gpt_response(
+            session_id, prompt, emotion_summary, record_history=False,
+        )
+
     async def process_chat_message(self, session_id: str, prompt: str):
         """Handle chat messages"""
-        summary = self.get_session_summary(session_id)
-        gpt_text = await self.chat_service.get_gpt_response(session_id, prompt, summary)
+        if not prompt:
+            await self.send_message(session_id, {
+                "type": "error",
+                "message": "Empty chat message.",
+            })
+            return
 
-        if session_id in self.session_data:
-            self.session_data[session_id]["chat_history"].append({"role": "user", "content": prompt})
-            self.session_data[session_id]["chat_history"].append({"role": "assistant", "content": gpt_text})
+        summary = self.get_session_summary(session_id)
+        # ChatService owns conversation history; storing a second copy on the
+        # session would be a duplicate source of truth.
+        reply = await self.chat_service.get_gpt_response(session_id, prompt, summary)
 
         await self.send_message(session_id, {
             "type": "chat_response",
-            "message": gpt_text,
-            "timestamp": datetime.now().isoformat()
+            "message": reply,
+            "timestamp": datetime.now().isoformat(),
         })
+        logger.debug("Chat message processed for session %s", session_id)
 
-        print(f"Chat message processed for {session_id}. Response sent")
+    async def assign_new_topic(self, session_id: str) -> None:
+        """Assign a fresh random topic to a live session."""
+        session = self.get_session(session_id)
+        if session is None:
+            return
+
+        new_topic = self.topic_service.get_random_topic()
+        session["topic"] = new_topic
+        await self.send_message(session_id, {
+            "type": "topic_assigned",
+            "topic": new_topic,
+        })
 
     def get_session_summary(self, session_id: str) -> dict:
         """Get emotion summary for a session"""
-        if session_id not in self.session_data:
+        session = self.get_session(session_id)
+        if session is None:
             return {}
-        
-        emotion_timeline = self.session_data[session_id]["emotions"]
-        summary = self.emotion_service.calculate_summary(emotion_timeline)
-        
+
+        summary = self.emotion_service.calculate_summary(session["emotions"])
+
         return {
-            "session_duration": (datetime.now() - self.session_data[session_id]["start_time"]).total_seconds(),
-            "total_frames": self.session_data[session_id]["frame_count"],
-            "emotion_summary": summary
+            "session_duration": (datetime.now() - session["start_time"]).total_seconds(),
+            "total_frames": session["frame_count"],
+            "emotion_summary": summary,
         }
-    
-    def save_session_to_db(self, session_id: str, transcript_data: Dict, 
-                          speech_analysis: Dict, voice_analysis: Dict,
-                          emotion_summary: Dict, feedback: str, duration: float):
+
+    def save_session_to_db(self, session_id: str, transcript_data: Dict,
+                           speech_analysis: Dict, voice_analysis: Dict,
+                           emotion_summary: Dict, feedback: str, duration: float,
+                           overall_score: Optional[float]):
         """Save session data to database"""
-        try:
-            session = self.session_data[session_id]
-            topic = session["topic"]
-            
-            session_data = {
-                "session_id": session_id,
-                "topic_id": topic.get("id"),
-                "topic_text": topic.get("topic"),
-                "duration": duration,
-                "transcript": transcript_data.get("text", ""),
-                "word_count": speech_analysis.get("word_count", 0),
-                "words_per_minute": speech_analysis.get("words_per_minute", 0),
-                "voice_analysis": voice_analysis,
-                "confidence_score": voice_analysis.get("confidence_score", 0),
-                "emotion_summary": emotion_summary.get("emotion_summary", {}),
-                "dominant_emotion": emotion_summary.get("emotion_summary", {}).get("dominant", "neutral"),
-                "ai_feedback": feedback,
-                "overall_score": self._calculate_overall_score(speech_analysis, voice_analysis, emotion_summary)
-            }
-            
-            SessionModel.create_session(sanitize(session_data))
-            print(f"Session {session_id} saved to database")
-            
-        except Exception as e:
-            print(f"Error saving session to database: {str(e)}")
-    
-    def _calculate_overall_score(self, speech_analysis: Dict, voice_analysis: Dict, emotion_summary: Dict) -> float:
-        """Calculate overall performance score (0-100)"""
-        scores = []
-        
-        # Speech score (0-100)
-        wpm = speech_analysis.get("words_per_minute", 0)
-        if 120 <= wpm <= 160:  # Ideal range
-            speech_score = 100
-        elif 100 <= wpm <= 180:
-            speech_score = 80
-        else:
-            speech_score = 60
-        
-        # Penalize for filler words
-        filler_pct = speech_analysis.get("filler_percentage", 0)
-        speech_score -= min(20, filler_pct * 2)
-        scores.append(max(0, speech_score))
-        
-        # Confidence score (already 0-100)
-        scores.append(voice_analysis.get("confidence_score", 50))
-        
-        # Emotion score - prefer confident/neutral emotions
-        emotion_data = emotion_summary.get("emotion_summary", {})
-        dominant = emotion_data.get("dominant", "neutral")
-        emotion_score = 70  # baseline
-        if dominant in ["happy", "neutral"]:
-            emotion_score = 85
-        elif dominant in ["surprise"]:
-            emotion_score = 75
-        elif dominant in ["sad", "angry", "fear"]:
-            emotion_score = 50
-        scores.append(emotion_score)
-        
-        # Average all scores
-        return round(sum(scores) / len(scores), 1)
+        session = self.get_session(session_id)
+        if session is None:
+            logger.warning("Session %s vanished before its results could be saved.", session_id)
+            return
+
+        topic = session.get("topic", {})
+        emotions = (emotion_summary or {}).get("emotion_summary", {}) or {}
+
+        record = {
+            "session_id": session_id,
+            "topic_id": topic.get("id"),
+            "topic_text": topic.get("topic"),
+            "duration": duration,
+            # Placeholder transcripts are not stored as if they were real speech.
+            "transcript": "" if transcript_data.get("is_mock") else transcript_data.get("text", ""),
+            "word_count": speech_analysis.get("word_count", 0),
+            "words_per_minute": speech_analysis.get("words_per_minute", 0),
+            "voice_analysis": voice_analysis,
+            "confidence_score": voice_analysis.get("confidence_score"),
+            "emotion_summary": emotions,
+            "dominant_emotion": emotions.get("dominant"),
+            "ai_feedback": feedback,
+            "overall_score": overall_score,
+        }
+
+        if SessionModel.create_session(sanitize(record)) is not None:
+            logger.info("Session %s saved to database", session_id)
+
 
 manager = ConnectionManager()
