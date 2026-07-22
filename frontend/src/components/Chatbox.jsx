@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useWS } from '../context/WebSocketContext';
+import { useWS } from '../context/wsContext';
 import { FiSend, FiRefreshCw } from 'react-icons/fi';
 
 export default function Chatbox() {
