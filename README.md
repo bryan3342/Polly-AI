@@ -242,8 +242,9 @@ Polly-AI/
 │   │   │   └── serialization.py        # numpy -> JSON sanitization
 │   │   └── data/
 │   │       └── topics.json             # Debate topics (single source of truth)
-│   ├── tests/                          # Automated pytest suite
-│   ├── tools/                          # Interactive camera scripts (manual only)
+│   ├── tests/
+│   │   ├── unit/                       # Automated pytest suite
+│   │   └── demos/                      # Interactive camera scripts (manual only)
 │   ├── requirements.txt
 │   └── requirements-dev.txt
 └── README.md
@@ -262,8 +263,13 @@ pytest
 The suite covers scoring rules, speech-pattern analysis, topic loading, session
 statistics, JSON sanitization, and static-path traversal containment.
 
-Scripts in `backend/tools/` open a camera window and wait for a keypress — they are
-manual diagnostics, not tests, and are excluded from collection via `pytest.ini`.
+`requirements-dev.txt` deliberately excludes the heavy runtime dependencies
+(TensorFlow, DeepFace, librosa, OpenCV) — the unit suite must not need them, which
+keeps CI to a few seconds. Install `requirements.txt` as well if you want to run the
+camera demos.
+
+Scripts in `backend/tests/demos/` open a camera window and wait for a keypress — they
+are manual diagnostics, not tests, and `pytest.ini` limits collection to `tests/unit`.
 
 Frontend checks:
 
