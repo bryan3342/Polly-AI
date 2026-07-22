@@ -1,5 +1,5 @@
 import { FaCircle, FaStop, FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
-import { useWS } from '../context/WebSocketContext';
+import { useWS } from '../context/wsContext';
 
 export default function Toolbar({ isRecording, cameraOn, muted, time, onRecord, onStop, onCam, onMic }) {
     const { connected } = useWS();
