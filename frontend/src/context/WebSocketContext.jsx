@@ -45,7 +45,9 @@ export function WebSocketProvider({ children }) {
                     setChat(p => [...p, { role: 'system', content: 'Analyzing your performance...' }]); break;
                 case 'analysis_complete':
                     setProcessing(false);
-                    setChat(p => [...p, { role: 'assistant', content: m.results?.feedback || 'Analysis complete.' }]); break;
+                    setChat(p => [...p, m.results
+                        ? { role: 'report', results: m.results }
+                        : { role: 'assistant', content: 'Analysis complete.' }]); break;
                 case 'chat_response':
                     setChat(p => [...p, { role: 'assistant', content: m.message }]); break;
                 case 'error': setError(m.message); break;

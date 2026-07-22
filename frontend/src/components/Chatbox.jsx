@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useWS } from '../context/wsContext';
 import { FiSend, FiRefreshCw } from 'react-icons/fi';
+import ReportCard from './ReportCard';
 
 export default function Chatbox() {
     const { chat, sendChat, connected, topic, processing, newTopic } = useWS();
@@ -50,6 +51,7 @@ export default function Chatbox() {
                 )}
 
                 {chat.map((m, i) => {
+                    if (m.role === 'report')    return <ReportCard key={i} results={m.results} />;
                     if (m.role === 'system')    return <div key={i} className="msg-system">{m.content}</div>;
                     if (m.role === 'user')      return <div key={i} className="msg-bubble user">{m.content}</div>;
                     return (
