@@ -19,8 +19,11 @@ app = FastAPI(title="Polly AI Debate Coach")
 
 init_db()
 
-# Explicit origin allow-list. `allow_origins=["*"]` cannot be combined with
-# allow_credentials=True -- browsers reject that combination outright.
+# CORS middleware — explicit origins only; "*" with allow_credentials=True is
+# invalid per the CORS spec and over-permissive (issue #22).
+# The module-level TopicService instance that used to live here is gone: topic
+# assignment moved into ConnectionManager.assign_new_topic, which guards against
+# the session having disappeared.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
