@@ -8,6 +8,11 @@ from deepface import DeepFace
 
 logger = logging.getLogger(__name__)
 
+# Fraction of the detected box added on each side before classifying. Haar boxes
+# crop tight to the face; expression cues at the brow, jaw and mouth corners sit
+# right on that boundary, so a little context measurably helps the classifier.
+FACE_MARGIN = 0.18
+
 
 def empty_result() -> Dict:
     """The canonical 'no face / no analysis' emotion payload.
@@ -35,6 +40,29 @@ class EmotionService:
         )
         logger.info("EmotionService initialized; emotion model loads on first frame.")
 
+    @staticmethod
+    def crop_face(frame: np.ndarray, box, margin: float = FACE_MARGIN) -> np.ndarray:
+        """Return the face region of `frame`, padded by `margin` and clamped.
+
+        Kept separate from the DeepFace call so the geometry is unit-testable
+        without the ML stack.
+        """
+        x, y, w, h = (int(v) for v in box)
+        height, width = frame.shape[:2]
+
+        pad_x = int(w * margin)
+        pad_y = int(h * margin)
+
+        x0 = max(0, x - pad_x)
+        y0 = max(0, y - pad_y)
+        x1 = min(width, x + w + pad_x)
+        y1 = min(height, y + h + pad_y)
+
+        crop = frame[y0:y1, x0:x1]
+        # A degenerate box (entirely outside the frame) would yield an empty
+        # array that DeepFace cannot process; fall back to the whole frame.
+        return crop if crop.size else frame
+
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
         try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -43,13 +71,21 @@ class EmotionService:
             if len(faces) == 0:
                 return empty_result()
 
-            (x, y, w, h) = faces[0]
+            # detectMultiScale returns boxes in no meaningful order, so picking
+            # faces[0] could follow a face in the background between frames.
+            # The largest box is the person actually addressing the camera.
+            (x, y, w, h) = max(faces, key=lambda box: int(box[2]) * int(box[3]))
             bounding_box = [int(x), int(y), int(w), int(h)]
 
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Classify the face, not the room. detector_backend="skip" tells
+            # DeepFace to treat its input as an already-cropped face; it was
+            # being handed the entire frame, so wall colour, clothing and
+            # anything else in shot fed into the emotion scores (issue #26).
+            face = self.crop_face(frame, bounding_box)
+            face_rgb = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
 
             result = DeepFace.analyze(
-                frame_rgb,
+                face_rgb,
                 actions=["emotion"],
                 enforce_detection=False,
                 detector_backend="skip",
