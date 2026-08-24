@@ -29,8 +29,10 @@ def _stub(name, **attrs):
 
 _stub("cv2", data=types.SimpleNamespace(haarcascades=""),
       CascadeClassifier=lambda *a, **k: None, cvtColor=lambda img, code: img,
-      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1)
-_stub("deepface", DeepFace=types.SimpleNamespace(analyze=lambda *a, **k: []))
+      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1,
+      imencode=lambda ext, img: (True, types.SimpleNamespace(tobytes=lambda: b"jpeg")))
+_stub("deepface", DeepFace=types.SimpleNamespace(
+    analyze=lambda *a, **k: [], build_model=lambda *a, **k: object()))
 _pil_image = _stub("PIL.Image", Image=type("Image", (), {}), open=lambda *a, **k: None)
 _stub("PIL", Image=_pil_image)
 
@@ -120,3 +122,32 @@ class TestLargestFaceSelection:
         chosen = max(faces, key=lambda b: int(b[2]) * int(b[3]))
 
         assert chosen == (200, 100, 120, 120)
+
+
+class TestWarmUp:
+    """The model is built at startup, not on a user's first frame.
+
+    Lazily constructing it meant the first frame of the first session paid for
+    the graph trace, the Haar cascade's first run and the JPEG decode path —
+    measured at 130ms, which reads to that user as the app stalling.
+    """
+
+    def test_warm_up_reports_success(self, monkeypatch):
+        service = EmotionService.__new__(EmotionService)
+        service.face_cascade = None
+        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+
+        assert service.warm_up() is True
+
+    def test_warm_up_failure_does_not_stop_startup(self, monkeypatch):
+        """Every other feature still works without emotion detection, so a
+        failure here is logged and left to the per-frame error handling."""
+        import app.services.emotion_service as module
+
+        service = EmotionService.__new__(EmotionService)
+        monkeypatch.setattr(
+            module.DeepFace, "build_model",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network")),
+        )
+
+        assert service.warm_up() is False

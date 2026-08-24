@@ -39,6 +39,11 @@ def build_connection_manager() -> ConnectionManager:
         prompt_builder=build_feedback_prompt,
     )
 
+    # Pay the model construction cost at startup rather than on a user's first
+    # frame. Fly.io's health check has a 120s grace period, so this happens
+    # while the machine is still coming up.
+    emotion_service.warm_up()
+
     logger.info("Application graph constructed.")
     return ConnectionManager(
         emotion_analyzer=emotion_service,
