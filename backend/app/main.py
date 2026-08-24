@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import secrets
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,8 +63,26 @@ async def _handle_message(session_id: str, message: dict) -> None:
         })
 
 
-@app.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str):
+# Length of a server-minted session id, in bytes of entropy before encoding.
+SESSION_ID_BYTES = 24
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Open a debate session.
+
+    The session id is minted here rather than taken from the URL. It used to be
+    whatever the client put in the path, so anyone could open /ws/<someone
+    else's id> and attach to a live session: read its topic and coaching
+    replies, push frames and audio into it, and trigger analysis on it. Ids were
+    also generated client-side as `user-` plus 7 characters of Math.random(),
+    which is neither unguessable nor unique (issue #21).
+
+    This closes the impersonation vector. It is not user authentication -- the
+    app has no accounts -- so a session is only as private as its id; see
+    docs/ARCHITECTURE.md for what real auth would require.
+    """
+    session_id = secrets.token_urlsafe(SESSION_ID_BYTES)
     await manager.connect(session_id, websocket)
 
     try:
