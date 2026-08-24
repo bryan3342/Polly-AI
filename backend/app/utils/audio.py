@@ -17,6 +17,8 @@ import logging
 import shutil
 import subprocess
 import wave
+from dataclasses import dataclass
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -175,3 +177,38 @@ def detect_speech_segments(
         for s in segments
         if s["end"] - s["start"] >= min_frames
     ]
+
+
+
+@dataclass(frozen=True)
+class DecodedRecording:
+    """A browser upload decoded once, ready for any analyser.
+
+    Transcription and voice analysis both need PCM audio, and both used to call
+    `decode_to_wav` on the same upload independently: two ffmpeg subprocesses
+    per recording, and two places that had to agree on the decode settings.
+    Decoding is now done once and the result passed to both.
+    """
+
+    wav_bytes: bytes
+    sample_rate: int
+
+    @classmethod
+    def from_upload(cls, raw: bytes, sample_rate: int = TARGET_SAMPLE_RATE) -> "DecodedRecording":
+        """Decode a MediaRecorder upload. Raises AudioDecodeError on failure."""
+        return cls(wav_bytes=decode_to_wav(raw, sample_rate), sample_rate=sample_rate)
+
+    @cached_property
+    def duration_seconds(self) -> float:
+        return wav_duration_seconds(self.wav_bytes)
+
+    @cached_property
+    def speech_segments(self) -> List[Dict[str, float]]:
+        return detect_speech_segments(self.wav_bytes)
+
+    def as_stream(self) -> io.BytesIO:
+        """A fresh reader over the PCM data, for librosa and friends."""
+        return io.BytesIO(self.wav_bytes)
+
+    def __bool__(self) -> bool:
+        return bool(self.wav_bytes)

@@ -92,12 +92,34 @@ class TestAnalyze:
         assert result.feedback == "Strong opening."
         assert result.duration == 42.0
 
-    def test_the_same_recording_reaches_both_analysers(self):
+    def test_the_recording_is_decoded_once_and_shared(self):
+        """Both analysers need PCM. Decoding per-analyser meant two ffmpeg
+        subprocesses per recording and two places agreeing on decode settings."""
         speech, voice = FakeSpeech(), FakeVoice()
-        _run(_service(speech=speech, voice=voice).analyze(_request(audio=b"take-one")))
+        service = _service(speech=speech, voice=voice)
 
-        assert speech.received == b"take-one"
-        assert voice.received == b"take-one"
+        decodes = []
+        sentinel = object()
+        service._decode = lambda audio: (decodes.append(audio), sentinel)[1]
+
+        _run(service.analyze(_request(audio=b"take-one")))
+
+        assert decodes == [b"take-one"], "the upload must be decoded exactly once"
+        assert speech.received is sentinel
+        assert voice.received is sentinel
+
+    def test_an_undecodable_upload_degrades_instead_of_raising(self):
+        """The report must explain what could not be measured."""
+        speech = FakeSpeech(transcript={"text": "", "is_mock": True, "error": "no audio"},
+                            analysis={})
+        voice = FakeVoice(analysis={"degraded": True}, tone="unavailable")
+        service = _service(speech=speech, voice=voice)
+
+        result = _run(service.analyze(_request(audio=b"not audio at all")))
+
+        assert speech.received is None and voice.received is None
+        assert result.transcript_is_mock is True
+        assert result.voice_analysis_degraded is True
 
     def test_feedback_prompt_does_not_enter_conversation_history(self):
         """A machine-generated prompt must not become user-visible context."""
