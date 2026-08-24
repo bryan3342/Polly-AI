@@ -14,12 +14,7 @@ from google import genai
 from google.genai import types
 
 from app.config import config
-from app.utils.audio import (
-    AudioDecodeError,
-    decode_to_wav,
-    detect_speech_segments,
-    wav_duration_seconds,
-)
+from app.utils.audio import DecodedRecording
 
 logger = logging.getLogger(__name__)
 
@@ -58,21 +53,20 @@ class SpeechService:
         else:
             logger.info("SpeechService initialized (model=%s).", TRANSCRIPTION_MODEL)
 
-    async def transcribe_audio(self, audio_data: bytes) -> Dict:
-        """Transcribe a browser recording.
+    async def transcribe_audio(self, recording: DecodedRecording) -> Dict:
+        """Transcribe a decoded recording.
 
         Returns the transcript plus `duration` and `segments` measured from the
         waveform, so pause statistics describe the actual recording rather than
-        placeholder values.
+        placeholder values. Decoding is the caller's job so one recording is
+        decoded once, not once per analyser.
         """
-        try:
-            wav_bytes = decode_to_wav(audio_data)
-        except AudioDecodeError as exc:
-            logger.warning("Cannot transcribe: %s", exc)
-            return self._unavailable(f"audio could not be decoded: {exc}")
+        if not recording:
+            return self._unavailable("no audio to transcribe")
 
-        duration = wav_duration_seconds(wav_bytes)
-        segments = detect_speech_segments(wav_bytes)
+        wav_bytes = recording.wav_bytes
+        duration = recording.duration_seconds
+        segments = recording.speech_segments
 
         if not self.client:
             return self._unavailable(
