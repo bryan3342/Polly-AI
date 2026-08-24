@@ -31,7 +31,13 @@ export default function ReportCard({ results }) {
     // leaving the reader to guess why a stat reads "—".
     const notes = [];
     if (results.transcript_is_mock) {
-        notes.push('Speech-to-text is not enabled yet, so pace, word count and filler stats come from placeholder text.');
+        // No transcript means no pace/word/filler stats at all — the backend
+        // returns nothing rather than deriving them from placeholder text.
+        notes.push(
+            results.transcript_error
+                ? `Speech could not be transcribed (${results.transcript_error}), so pace, word count and filler stats are unavailable.`
+                : 'Speech could not be transcribed, so pace, word count and filler stats are unavailable.'
+        );
     }
     if (results.voice_analysis_degraded) {
         notes.push('Voice analysis failed for this recording, so confidence could not be scored.');
