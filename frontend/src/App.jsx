@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWS } from './context/wsContext';
+import PollyMark from './components/PollyMark';
 import VideoBox from './components/VideoBox';
 import Chatbox  from './components/Chatbox';
 import Toolbar  from './components/Toolbar';
@@ -37,6 +38,7 @@ export default function App() {
             {/* ── header ─────────────────────── */}
             <header className="header">
                 <div className="header-brand">
+                    <PollyMark size={22} className="brand-mark" />
                     <h1>Polly AI</h1>
                     <span className="header-badge">Debate Coach</span>
                 </div>
