@@ -19,6 +19,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Bake the emotion model weights into the image.
+#
+# DeepFace fetches them from a remote host the first time a frame is analysed.
+# In a fresh container that made the first user wait for a download, and made
+# emotion detection depend on a third-party host being reachable at request
+# time — a runtime failure mode for something that is really a build input.
+RUN python -c "from deepface import DeepFace; DeepFace.build_model('Emotion', task='facial_attribute')"
+
 # Backend code
 COPY backend/ .
 
