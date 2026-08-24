@@ -14,6 +14,14 @@ const WS_BASE = getWsBase();
 const WS_URL = `${WS_BASE}/ws`;
 const FRAME_MS = 1000;
 
+// Shown when the socket never opened at all — almost always the analysis
+// backend not running, or a static-only deployment with no VITE_WS_URL set.
+// Says which half is missing rather than reporting a generic failure, because
+// the camera and the rest of the interface are working fine at this point.
+const UNREACHABLE =
+    "Can't reach the analysis server, so coaching and scoring are unavailable. "
+    + 'The camera still works. Retrying…';
+
 export function WebSocketProvider({ children }) {
     const [connected, setConnected]     = useState(false);
     const [emotion, setEmotion]         = useState(null);
@@ -22,6 +30,10 @@ export function WebSocketProvider({ children }) {
     const [processing, setProcessing]   = useState(false);
     const [error, setError]             = useState(null);
     const [sessionId, setSessionId]     = useState(null);
+    // Distinguishes "never reached the server" from "was connected and dropped".
+    // They need different explanations: the first is usually a backend that is
+    // not running or not configured, the second is a blip worth waiting out.
+    const everConnected = useRef(false);
     const ws   = useRef(null);
     const reco = useRef(null);
 
@@ -35,9 +47,13 @@ export function WebSocketProvider({ children }) {
         const state = ws.current?.readyState;
         if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
         try { ws.current = new WebSocket(WS_URL); }
-        catch { setError('Backend not reachable.'); return; }
+        catch { setError(UNREACHABLE); return; }
 
-        ws.current.onopen = () => { setConnected(true); setError(null); };
+        ws.current.onopen = () => {
+            everConnected.current = true;
+            setConnected(true);
+            setError(null);
+        };
 
         ws.current.onmessage = (e) => {
             let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -61,9 +77,14 @@ export function WebSocketProvider({ children }) {
 
         ws.current.onclose = (e) => {
             setConnected(false);
-            if (!e.wasClean) { setError('Lost connection. Reconnecting...'); reco.current = setTimeout(connect, 3000); }
+            if (e.wasClean) return;
+            setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
+            reco.current = setTimeout(connect, 3000);
         };
-        ws.current.onerror = () => { setError('Cannot reach backend.'); ws.current?.close(); };
+        ws.current.onerror = () => {
+            setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
+            ws.current?.close();
+        };
     }, []);
 
     useEffect(() => {

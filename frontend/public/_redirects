@@ -1,0 +1,3 @@
+# SPA fallback: every path serves index.html so client-side routing works.
+# Cloudflare Pages reads this file from the build output root.
+/*  /index.html  200
