@@ -1,3 +1,5 @@
+import Markdown from './Markdown';
+
 /* Formats seconds as m:ss; returns null for missing/invalid input. */
 function fmtDuration(s) {
     if (typeof s !== 'number' || !isFinite(s)) return null;
@@ -92,7 +94,9 @@ export default function ReportCard({ results }) {
                 </ul>
             )}
 
-            {results.feedback && <div className="report-feedback">{results.feedback}</div>}
+            {results.feedback && (
+                <div className="report-feedback"><Markdown>{results.feedback}</Markdown></div>
+            )}
 
             <details className="report-transcript">
                 <summary>Transcript</summary>
