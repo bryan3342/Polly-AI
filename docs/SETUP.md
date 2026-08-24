@@ -85,10 +85,12 @@ free CPU tier provides 2 vCPU and 16 GB of RAM, which is what the TensorFlow
 dependency needs, and it requires no payment card.
 
 ```bash
-# 1. Create an empty Space (Docker SDK) at https://huggingface.co/new-space
-# 2. Create a write token at https://huggingface.co/settings/tokens
+# Only prerequisite: a write token from https://huggingface.co/settings/tokens
 HF_TOKEN=hf_... ./deploy/huggingface/deploy.sh <your-hf-username> polly-ai
 ```
+
+The script creates the Space if it does not exist and updates it if it does, so
+it is safe to re-run for every deploy.
 
 The first build takes roughly ten minutes — the TensorFlow layer dominates.
 Afterwards the app is at `https://<username>-polly-ai.hf.space`.

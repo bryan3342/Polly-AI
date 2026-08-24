@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Deploy Polly AI to a Hugging Face Space.
 #
-# Spaces are git repositories. This assembles a Space tree from the app source
-# (the Space needs the Dockerfile and README front-matter at *its* root) and
-# pushes it.
+# Spaces are git repositories. This creates the Space if it does not exist,
+# assembles a Space tree from the app source (the Space needs the Dockerfile and
+# README front-matter at *its* root), and pushes it.
 #
 # Requires: HF_TOKEN with write scope, from https://huggingface.co/settings/tokens
 #
@@ -16,6 +16,29 @@ SPACE="${2:-polly-ai}"
 : "${HF_TOKEN:?HF_TOKEN is not set — create one at https://huggingface.co/settings/tokens}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+echo "==> Checking the token"
+WHOAMI=$(curl -sS -H "Authorization: Bearer ${HF_TOKEN}" https://huggingface.co/api/whoami-v2)
+if ! grep -q '"name"' <<<"$WHOAMI"; then
+  echo "    Token rejected by Hugging Face. Create a *write* token at" >&2
+  echo "    https://huggingface.co/settings/tokens" >&2
+  exit 1
+fi
+echo "    authenticated"
+
+echo "==> Ensuring the Space exists"
+# Idempotent: an existing Space returns 409, which is success for our purposes.
+CREATE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer ${HF_TOKEN}" -H "Content-Type: application/json" \
+  -d "{\"type\":\"space\",\"name\":\"${SPACE}\",\"sdk\":\"docker\",\"private\":false}" \
+  https://huggingface.co/api/repos/create)
+case "$CREATE" in
+  200|201) echo "    created ${USERNAME}/${SPACE}" ;;
+  409)     echo "    already exists — updating it" ;;
+  *)       echo "    could not create the Space (HTTP ${CREATE})." >&2
+           echo "    Check the token has write scope, then retry." >&2
+           exit 1 ;;
+esac
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
