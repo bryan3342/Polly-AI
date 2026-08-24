@@ -14,91 +14,49 @@ from typing import Dict, Optional
 from fastapi import WebSocket
 
 from app.config import config
-from app.models.session import SessionModel
-from app.services import emotion_service as emotion_module
-from app.services.analysis_service import AnalysisRequest, SessionAnalysisService
-from app.services.chat_service import ChatService
-from app.services.emotion_service import EmotionService
-from app.services.speech_service import SpeechService
-from app.services.topic_service import TopicService
-from app.services.voice_analysis_service import VoiceAnalysisService
-from app.utils.imaging import base64_to_image
+from app.services.analysis_service import AnalysisRequest
+from app.services.protocols import (
+    CoachingService,
+    EmotionAnalyzer,
+    EmotionResult,
+    SessionAnalyzer,
+    SessionRepository,
+    TopicProvider,
+)
 from app.utils.serialization import sanitize
 
 logger = logging.getLogger(__name__)
 
 
-def _build_feedback_prompt(topic: Dict, duration: float, transcript_data: Dict,
-                           speech_analysis: Dict, tone_description: str,
-                           voice_analysis: Dict, emotion_summary: Dict) -> str:
-    """Compose the post-session analysis prompt sent to the coaching model."""
-    emotions = (emotion_summary or {}).get("emotion_summary", {}) or {}
-    confidence = (voice_analysis or {}).get("confidence_score")
-    detections = emotions.get("detections")
-
-    caveat = ""
-    if transcript_data.get("is_mock"):
-        caveat = (
-            "\nNOTE: Speech-to-text is not enabled, so the transcript and the metrics "
-            "derived from it are placeholders. Do not comment on the wording of the "
-            "transcript; focus your feedback on vocal delivery and composure.\n"
-        )
-
-    return f"""
-        Analyze this debate practice session and provide constructive feedback.
-        {caveat}
-        DEBATE TOPIC: {topic.get('topic')}
-        DURATION: {duration:.1f} seconds
-
-        TRANSCRIPT:
-        {transcript_data.get('text', 'No transcript available')}
-
-        SPEECH METRICS:
-        - Word count: {speech_analysis.get('word_count', 0)}
-        - Speaking pace: {speech_analysis.get('words_per_minute', 0)} words/minute
-        - Filler words: {speech_analysis.get('filler_word_count', 0)} ({speech_analysis.get('filler_percentage', 0)}%)
-        - Average pause duration: {speech_analysis.get('average_pause_duration', 0)} seconds
-
-        VOICE ANALYSIS:
-        - Tone: {tone_description}
-        - Confidence score: {'unavailable' if confidence is None else f'{confidence}/100'}
-
-        EMOTIONAL STATE:
-        - Dominant emotion: {emotions.get('dominant', 'not detected')}
-        - Detection rate: {'unavailable' if detections is None else f'{detections:.1%}'}
-
-        Please provide:
-        1. Overall assessment (2-3 sentences)
-        2. Strengths (2-3 specific points)
-        3. Areas for improvement (2-3 specific points)
-        4. Actionable tips for next practice (3-4 concrete suggestions)
-
-        Keep feedback constructive, specific, and encouraging.
-        """
-
-
 class ConnectionManager:
-    def __init__(self):
+    """WebSocket connection lifecycle and message fan-out.
+
+    Collaborators are injected rather than constructed here: this layer is about
+    transport, and building the analysis stack was both a second responsibility
+    and the reason importing this module pulled in TensorFlow, OpenCV, librosa
+    and the Gemini SDK. See `app.container` for the wiring.
+    """
+
+    def __init__(self,
+                 emotion_analyzer: EmotionAnalyzer,
+                 coach: CoachingService,
+                 topics: TopicProvider,
+                 analyzer: SessionAnalyzer,
+                 repository: SessionRepository,
+                 max_concurrent_inferences: Optional[int] = None):
         self.active_connections: Dict[str, WebSocket] = {}
         self.session_data: Dict[str, dict] = {}
+
+        self.emotion_service = emotion_analyzer
+        self.chat_service = coach
+        self.topic_service = topics
+        self.analysis_service = analyzer
+        self.repository = repository
+
         # Bounds concurrent emotion inference across all sessions; see
         # config.MAX_CONCURRENT_INFERENCES.
-        self._inference_slots = asyncio.Semaphore(config.MAX_CONCURRENT_INFERENCES)
-
-        self.emotion_service = EmotionService()
-        self.chat_service = ChatService()
-        self.speech_service = SpeechService()
-        self.topic_service = TopicService()
-        self.voice_service = VoiceAnalysisService()
-
-        # The analysis sequence is domain work, not transport; this layer only
-        # gathers its inputs and fans the result back out.
-        self.analysis_service = SessionAnalysisService(
-            speech_service=self.speech_service,
-            voice_service=self.voice_service,
-            coach_service=self.chat_service,
-            prompt_builder=_build_feedback_prompt,
-        )
+        limit = max_concurrent_inferences or config.MAX_CONCURRENT_INFERENCES
+        self._inference_slots = asyncio.Semaphore(limit)
 
     # ── session state ────────────────────────────────────────────────
     def get_session(self, session_id: str) -> Optional[dict]:
@@ -195,9 +153,12 @@ class ConnectionManager:
 
     # ── frame handling ───────────────────────────────────────────────
     def _analyze_frame_blocking(self, frame_data: str) -> Dict:
-        """JPEG decode + DeepFace inference. Runs on a worker thread."""
-        frame = base64_to_image(frame_data)
-        return self.emotion_service.analyze_frame(frame) or emotion_module.empty_result()
+        """Frame decode + inference. Runs on a worker thread.
+
+        Both steps belong to the analyzer; this layer only decides *where* the
+        work runs, not how a frame becomes an emotion.
+        """
+        return self.emotion_service.analyze_encoded_frame(frame_data)
 
     async def process_frame(self, session_id: str, frame_data: str, timestamp: float):
         try:
@@ -215,7 +176,7 @@ class ConnectionManager:
                 result = await asyncio.to_thread(self._analyze_frame_blocking, frame_data)
         except Exception:
             logger.exception("Error processing frame for session %s", session_id)
-            result = emotion_module.empty_result()
+            result = EmotionResult.empty()
 
         session = self.get_session(session_id)
         frame_count = 0
@@ -392,8 +353,4 @@ class ConnectionManager:
             logger.warning("Session %s vanished before its results could be saved.", session_id)
             return
 
-        record = analysis.to_record(session_id, session.get("topic", {}))
-        if SessionModel.create_session(sanitize(record)) is not None:
-            logger.info("Session %s saved to database", session_id)
-
-manager = ConnectionManager()
+        self.repository.save(analysis.to_record(session_id, session.get("topic", {})))
