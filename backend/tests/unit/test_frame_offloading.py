@@ -7,64 +7,54 @@ messages for the duration of each inference (issue #23).
 
 These tests drive the real ConnectionManager code path with a deliberately slow
 blocking analyzer and assert that unrelated coroutines keep making progress.
+
+Note what this file does *not* do: it imports the transport layer directly, with
+no `sys.modules` surgery. That is only possible because ConnectionManager now
+depends on the protocols in `app.services.protocols` rather than on the
+concrete, TensorFlow-backed services.
 """
 
 import asyncio
-import importlib
-import sys
 import time
-import types
 
-import pytest
+from app.api.websocket import ConnectionManager
 
-
-def _stub(name, **attrs):
-    """Register a stand-in module, but never shadow a real installation."""
-    if name in sys.modules:
-        return sys.modules[name]
-    try:
-        return importlib.import_module(name)
-    except ImportError:
-        module = types.ModuleType(name)
-        for key, value in attrs.items():
-            setattr(module, key, value)
-        sys.modules[name] = module
-        return module
-
-
-# The transport layer imports opencv/deepface/pillow transitively. Stubbing them
-# keeps this test runnable in CI, which deliberately does not install the ML stack.
-_stub("cv2", data=types.SimpleNamespace(haarcascades=""), CascadeClassifier=lambda *a, **k: None,
-      cvtColor=lambda *a, **k: None, COLOR_BGR2GRAY=0, COLOR_BGR2RGB=0, COLOR_RGB2BGR=0,
-      imdecode=lambda *a, **k: None, IMREAD_COLOR=1)
-_stub("deepface", DeepFace=types.SimpleNamespace(analyze=lambda *a, **k: []))
-_stub("librosa", load=lambda *a, **k: (None, None),
-      feature=types.SimpleNamespace(), effects=types.SimpleNamespace())
-
-# google-genai reads PIL.Image.Image at import time, so the stub needs that
-# attribute chain rather than a bare namespace.
-_pil_image = _stub("PIL.Image", Image=type("Image", (), {}), open=lambda *a, **k: None)
-_stub("PIL", Image=_pil_image)
-
-websocket = pytest.importorskip("app.api.websocket")
 
 BLOCKING_SECONDS = 0.30
 TICK_SECONDS = 0.01
 
 
-def _manager(blocking_seconds=BLOCKING_SECONDS):
-    """A ConnectionManager whose frame analysis blocks for a known duration."""
-    manager = websocket.ConnectionManager.__new__(websocket.ConnectionManager)
-    manager.active_connections = {}
-    manager.session_data = {}
-    manager._inference_slots = asyncio.Semaphore(2)
+class SlowEmotionAnalyzer:
+    """Stands in for DeepFace: synchronous and slow, as the real one is."""
 
-    def slow_analyze(frame_data):
-        time.sleep(blocking_seconds)          # synchronous, like DeepFace
+    def __init__(self, blocking_seconds):
+        self._blocking_seconds = blocking_seconds
+
+    def analyze_encoded_frame(self, frame_data):
+        time.sleep(self._blocking_seconds)
         return {"face_detected": False}
 
-    manager._analyze_frame_blocking = slow_analyze
-    return manager
+    def calculate_summary(self, emotion_timeline):
+        return {}
+
+
+class _Unused:
+    """Collaborators these tests never exercise."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"unexpected call to {name}")
+
+
+def _manager(blocking_seconds=BLOCKING_SECONDS):
+    """A ConnectionManager whose frame analysis blocks for a known duration."""
+    return ConnectionManager(
+        emotion_analyzer=SlowEmotionAnalyzer(blocking_seconds),
+        coach=_Unused(),
+        topics=_Unused(),
+        analyzer=_Unused(),
+        repository=_Unused(),
+        max_concurrent_inferences=2,
+    )
 
 
 async def _count_ticks(stop_event):

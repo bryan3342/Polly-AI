@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 
+from app.utils.imaging import base64_to_image
+
 logger = logging.getLogger(__name__)
 
 # Fraction of the detected box added on each side before classifying. Haar boxes
@@ -62,6 +64,23 @@ class EmotionService:
         # A degenerate box (entirely outside the frame) would yield an empty
         # array that DeepFace cannot process; fall back to the whole frame.
         return crop if crop.size else frame
+
+    def analyze_encoded_frame(self, frame_data: str) -> Dict:
+        """Decode a base64 data-URL frame and classify it.
+
+        The transport layer used to decode the JPEG itself and fall back to
+        `empty_result()` when analysis returned nothing. That made it depend on
+        OpenCV and on this module's result shape for something that is entirely
+        this service's concern. It now hands over the encoded frame and always
+        receives a valid result.
+        """
+        try:
+            frame = base64_to_image(frame_data)
+        except Exception:
+            logger.exception("Could not decode frame")
+            return empty_result()
+
+        return self.analyze_frame(frame) or empty_result()
 
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
         try:
