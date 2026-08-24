@@ -10,6 +10,13 @@ export default defineConfig({
   // built SPA), so the client derives the WebSocket URL from window.location.
   // In dev they are split across :5173 and :8000, so proxy the backend routes
   // to keep that same-origin assumption true here too.
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.test.jsx'],
+    setupFiles: ['./vitest.setup.js'],
+  },
+
   server: {
     proxy: {
       '/ws': { target: 'ws://localhost:8000', ws: true },

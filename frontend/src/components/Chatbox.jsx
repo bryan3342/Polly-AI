@@ -3,6 +3,7 @@ import { useWS } from '../context/wsContext';
 import { FiSend, FiRefreshCw } from 'react-icons/fi';
 import ReportCard from './ReportCard';
 import PollyMark from './PollyMark';
+import Markdown from './Markdown';
 
 export default function Chatbox() {
     const { chat, sendChat, connected, topic, processing, newTopic } = useWS();
@@ -62,7 +63,7 @@ export default function Chatbox() {
                                 <PollyMark size={14} className="sender-mark" />
                                 Polly AI
                             </div>
-                            {m.content}
+                            <Markdown>{m.content}</Markdown>
                         </div>
                     );
                 })}
