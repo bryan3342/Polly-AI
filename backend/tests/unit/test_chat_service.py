@@ -38,7 +38,7 @@ def _run(coro):
 
 def test_returns_the_model_reply_and_records_history():
     svc = _service(["Lead with your strongest claim."])
-    reply = _run(svc.get_gpt_response("s1", "How do I open?"))
+    reply = _run(svc.get_coach_response("s1", "How do I open?"))
 
     assert reply == "Lead with your strongest claim."
     assert svc.get_history("s1") == [
@@ -49,15 +49,15 @@ def test_returns_the_model_reply_and_records_history():
 
 def test_uses_the_configured_model():
     svc = _service()
-    _run(svc.get_gpt_response("s1", "hi"))
+    _run(svc.get_coach_response("s1", "hi"))
     assert svc.client.models.calls[0]["model"] == MODEL_NAME
 
 
 def test_history_is_sent_as_typed_roles_not_a_flattened_string():
     """Regression: the old SDK path concatenated turns into one labelled blob."""
     svc = _service(["first", "second"])
-    _run(svc.get_gpt_response("s1", "one"))
-    _run(svc.get_gpt_response("s1", "two"))
+    _run(svc.get_coach_response("s1", "one"))
+    _run(svc.get_coach_response("s1", "two"))
 
     contents = svc.client.models.calls[1]["contents"]
     assert [c.role for c in contents] == ["user", "model", "user"]
@@ -66,20 +66,20 @@ def test_history_is_sent_as_typed_roles_not_a_flattened_string():
 
 def test_analysis_prompts_do_not_pollute_chat_history():
     svc = _service(["report"])
-    _run(svc.get_gpt_response("s1", "INTERNAL ANALYSIS PROMPT", record_history=False))
+    _run(svc.get_coach_response("s1", "INTERNAL ANALYSIS PROMPT", record_history=False))
     assert svc.get_history("s1") == []
 
 
 def test_emotion_summary_rides_in_the_system_instruction():
     svc = _service()
-    _run(svc.get_gpt_response("s1", "hi", {"emotion_summary": {"dominant": "sad"}}))
+    _run(svc.get_coach_response("s1", "hi", {"emotion_summary": {"dominant": "sad"}}))
     assert "sad" in svc.client.models.calls[0]["config"].system_instruction
 
 
 def test_history_is_capped():
     svc = _service(["r"] * 30)
     for i in range(30):
-        _run(svc.get_gpt_response("s1", f"msg {i}"))
+        _run(svc.get_coach_response("s1", f"msg {i}"))
     sent = svc.client.models.calls[-1]["contents"]
     assert len(sent) <= 21   # 20 history turns + the new prompt
 
@@ -89,24 +89,24 @@ def test_missing_api_key_reports_configuration_error():
     svc.api_key = None
     svc.client = None
     svc._chats = {}
-    assert "not configured" in _run(svc.get_gpt_response("s1", "hi"))
+    assert "not configured" in _run(svc.get_coach_response("s1", "hi"))
 
 
 def test_empty_model_response_is_not_returned_as_a_reply():
     """An empty completion must not be recorded as the coach's answer."""
     svc = _service([""])
-    reply = _run(svc.get_gpt_response("s1", "hi"))
+    reply = _run(svc.get_coach_response("s1", "hi"))
     assert reply == "I'm having trouble responding right now. Please try again."
     assert svc.get_history("s1") == []
 
 
 def test_auth_failure_is_reported_distinctly():
     svc = _service(error=RuntimeError("403 API key not valid"))
-    assert "AI configuration" in _run(svc.get_gpt_response("s1", "hi"))
+    assert "AI configuration" in _run(svc.get_coach_response("s1", "hi"))
 
 
 def test_clear_history_drops_the_session():
     svc = _service(["a"])
-    _run(svc.get_gpt_response("s1", "hi"))
+    _run(svc.get_coach_response("s1", "hi"))
     svc.clear_history("s1")
     assert svc.get_history("s1") == []

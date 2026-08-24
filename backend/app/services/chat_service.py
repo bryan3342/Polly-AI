@@ -71,7 +71,7 @@ class ChatService:
             )
         return instruction
 
-    async def get_gpt_response(self, session_id: str, prompt: str,
+    async def get_coach_response(self, session_id: str, prompt: str,
                                emotion_summary: Dict = None,
                                record_history: bool = True) -> str:
         """Get a Gemini response with full conversation context.
