@@ -273,7 +273,7 @@ class ConnectionManager:
         duration = (datetime.now() - session["recording_start_time"]).total_seconds()
         audio_bytes = bytes(session["audio_data"])
 
-        transcript_data = self.speech_service.transcribe_audio(audio_bytes)
+        transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
         speech_analysis = self.speech_service.analyze_speech_patterns(transcript_data)
 
         voice_analysis = self.voice_service.analyze_audio(audio_bytes)
@@ -300,6 +300,7 @@ class ConnectionManager:
             "results": {
                 "transcript": transcript_data.get("text", ""),
                 "transcript_is_mock": bool(transcript_data.get("is_mock")),
+                "transcript_error": transcript_data.get("error"),
                 "speech_analysis": speech_analysis,
                 "voice_analysis": voice_analysis,
                 "voice_analysis_degraded": bool(voice_analysis.get("degraded")),

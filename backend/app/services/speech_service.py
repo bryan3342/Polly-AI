@@ -1,45 +1,143 @@
+"""Speech transcription and speech-pattern analysis.
+
+Transcription runs the recorded audio through Gemini's audio understanding.
+When no API key is configured the service degrades explicitly (`is_mock=True`,
+empty text) rather than returning the fabricated paragraph it used to ship,
+which flowed into the score and the report as though the user had said it.
+"""
+
+import asyncio
 import logging
-from typing import Dict
+from typing import Dict, List, Optional
+
+from google import genai
+from google.genai import types
+
+from app.config import config
+from app.utils.audio import (
+    AudioDecodeError,
+    decode_to_wav,
+    detect_speech_segments,
+    wav_duration_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
 FILLER_WORDS = ["um", "uh", "like", "you know", "so", "basically", "actually"]
 MIN_PAUSE_SECONDS = 0.5
 
-_MOCK_TRANSCRIPT = (
-    "Mock transcription: You presented a strong argument about the debate topic. "
-    "Your main points were clear and well-structured. You maintained good pacing "
-    "throughout your speech."
+TRANSCRIPTION_MODEL = "gemini-2.0-flash"
+
+TRANSCRIPTION_PROMPT = (
+    "Transcribe this recording of a person practising a debate argument.\n"
+    "Rules:\n"
+    "- Output only the words spoken, as a single plain-text paragraph.\n"
+    "- Transcribe verbatim. Keep filler words exactly as spoken "
+    "(um, uh, like, you know, so, basically, actually). Do not clean them up.\n"
+    "- Do not add commentary, headings, speaker labels, or timestamps.\n"
+    "- If the audio contains no intelligible speech, output exactly: (no speech detected)"
 )
+
+NO_SPEECH_MARKER = "(no speech detected)"
+
+# Gemini bills and rate-limits by input size; ~10 minutes of 16 kHz mono PCM.
+MAX_TRANSCRIBE_BYTES = 20 * 1024 * 1024
 
 
 class SpeechService:
-    """Speech transcription and pattern analysis.
-
-    Transcription is not yet implemented; `transcribe_audio` returns placeholder
-    text flagged with `is_mock=True`. Callers must propagate that flag so the
-    fabricated transcript is never presented or stored as a real measurement.
-    """
+    """Transcribes recorded audio and derives speaking-pattern metrics."""
 
     def __init__(self):
-        logger.warning("SpeechService initialized with MOCK transcription (no real STT configured).")
+        self.api_key = config.GEMINI_API_KEY
+        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        if not self.client:
+            logger.warning(
+                "GEMINI_API_KEY is not set; transcription is unavailable and "
+                "sessions will report no transcript."
+            )
+        else:
+            logger.info("SpeechService initialized (model=%s).", TRANSCRIPTION_MODEL)
 
-    def transcribe_audio(self, audio_data: bytes) -> Dict:
-        """Return a placeholder transcript.
+    async def transcribe_audio(self, audio_data: bytes) -> Dict:
+        """Transcribe a browser recording.
 
-        Replace with a real STT call (Google Cloud Speech / Gemini Audio) and drop
-        the `is_mock` flag when doing so.
+        Returns the transcript plus `duration` and `segments` measured from the
+        waveform, so pause statistics describe the actual recording rather than
+        placeholder values.
+        """
+        try:
+            wav_bytes = decode_to_wav(audio_data)
+        except AudioDecodeError as exc:
+            logger.warning("Cannot transcribe: %s", exc)
+            return self._unavailable(f"audio could not be decoded: {exc}")
+
+        duration = wav_duration_seconds(wav_bytes)
+        segments = detect_speech_segments(wav_bytes)
+
+        if not self.client:
+            return self._unavailable(
+                "transcription unavailable (GEMINI_API_KEY is not configured)",
+                duration=duration,
+                segments=segments,
+            )
+
+        if len(wav_bytes) > MAX_TRANSCRIBE_BYTES:
+            return self._unavailable(
+                "recording is too long to transcribe",
+                duration=duration,
+                segments=segments,
+            )
+
+        try:
+            # Blocking network call: keep it off the event loop or every other
+            # connected session stalls for its duration.
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=TRANSCRIPTION_MODEL,
+                contents=[
+                    TRANSCRIPTION_PROMPT,
+                    types.Part.from_bytes(data=wav_bytes, mime_type="audio/wav"),
+                ],
+            )
+            text = (response.text or "").strip()
+        except Exception as exc:
+            logger.exception("Transcription request failed")
+            return self._unavailable(
+                f"transcription failed: {exc}", duration=duration, segments=segments
+            )
+
+        if not text or text.lower().startswith(NO_SPEECH_MARKER[:18]):
+            return self._unavailable(
+                "no intelligible speech detected", duration=duration, segments=segments
+            )
+
+        return {
+            "text": text,
+            "segments": segments,
+            "duration": round(duration, 2),
+            "language": "en",
+            "is_mock": False,
+        }
+
+    @staticmethod
+    def _unavailable(
+        reason: str,
+        duration: float = 0.0,
+        segments: Optional[List[Dict]] = None,
+    ) -> Dict:
+        """A transcript result that carries no words.
+
+        `is_mock` stays True so callers keep treating the text as unusable; the
+        difference from the old behaviour is that the text really is empty
+        instead of being an invented paragraph of praise.
         """
         return {
-            "text": _MOCK_TRANSCRIPT,
-            "segments": [
-                {"start": 0, "end": 5},
-                {"start": 5, "end": 10},
-                {"start": 10, "end": 15},
-            ],
-            "duration": 15.0,
+            "text": "",
+            "segments": segments or [],
+            "duration": round(duration, 2),
             "language": "en",
             "is_mock": True,
+            "error": reason,
         }
 
     def analyze_speech_patterns(self, transcript_data: Dict) -> Dict:
