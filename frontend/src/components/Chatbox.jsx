@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useWS } from '../context/wsContext';
 import { FiSend, FiRefreshCw } from 'react-icons/fi';
 import ReportCard from './ReportCard';
+import PollyMark from './PollyMark';
 
 export default function Chatbox() {
     const { chat, sendChat, connected, topic, processing, newTopic } = useWS();
@@ -46,7 +47,8 @@ export default function Chatbox() {
             <div className="messages">
                 {chat.length === 0 && (
                     <div className="messages-empty">
-                        {connected ? 'Start a recording or ask Polly a question.' : 'Connecting to server...'}
+                        <PollyMark size={44} className="empty-mark" />
+                        <span>{connected ? 'Start a recording or ask Polly a question.' : 'Connecting to server...'}</span>
                     </div>
                 )}
 
@@ -56,7 +58,10 @@ export default function Chatbox() {
                     if (m.role === 'user')      return <div key={i} className="msg-bubble user">{m.content}</div>;
                     return (
                         <div key={i} className="msg-bubble assistant">
-                            <div className="sender">Polly AI</div>
+                            <div className="sender">
+                                <PollyMark size={14} className="sender-mark" />
+                                Polly AI
+                            </div>
                             {m.content}
                         </div>
                     );
