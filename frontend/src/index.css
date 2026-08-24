@@ -231,6 +231,9 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
     border-bottom-left-radius: 4px;
 }
 .msg-bubble.assistant .sender {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 10px;
     color: #8ba3e8;
     font-weight: 600;
@@ -330,6 +333,8 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 .messages-empty {
     flex: 1;
     display: flex;
+    flex-direction: column;
+    gap: 12px;
     align-items: center;
     justify-content: center;
     color: #4b5563;
@@ -463,4 +468,31 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
         grid-template-columns: 1fr;
         grid-template-rows: 1fr 1fr;
     }
+}
+
+/* ── Brand mark ───────────────────────────────────────
+   The parrot is the app's only piece of illustration, so it carries the
+   identity in the header, the coach's messages and the empty chat state. */
+.brand-mark {
+    display: block;
+    flex-shrink: 0;
+}
+.sender-mark {
+    flex-shrink: 0;
+}
+.empty-mark {
+    opacity: .35;
+}
+
+/* Held steady rather than animated by default; the loading state is the one
+   place a little life reads as progress instead of decoration. */
+.messages-empty .empty-mark {
+    animation: mark-breathe 3.2s ease-in-out infinite;
+}
+@keyframes mark-breathe {
+    0%, 100% { opacity: .28; transform: translateY(0); }
+    50%      { opacity: .48; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .messages-empty .empty-mark { animation: none; }
 }
