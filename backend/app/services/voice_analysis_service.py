@@ -5,7 +5,7 @@ from typing import Dict
 import librosa
 import numpy as np
 
-from app.utils.audio import AudioDecodeError, decode_to_wav
+from app.utils.audio import DecodedRecording
 
 logger = logging.getLogger(__name__)
 
@@ -14,22 +14,18 @@ class VoiceAnalysisService:
     def __init__(self):
         logger.info("VoiceAnalysisService initialized.")
 
-    def analyze_audio(self, audio_data: bytes) -> Dict:
-        """Analyze recorded audio for tone, pitch, energy and confidence.
+    def analyze_audio(self, recording: DecodedRecording) -> Dict:
+        """Analyze a decoded recording for tone, pitch, energy and confidence.
 
-        `audio_data` is the raw MediaRecorder upload (WebM/Opus, or MP4/AAC on
-        Safari). librosa cannot read either container, so it is transcoded to
-        PCM WAV first; without that step every call landed in the degraded
-        branch below.
+        Takes an already-decoded recording rather than the raw upload: librosa
+        cannot demux the browser's WebM/Opus, and decoding is the caller's job
+        so it happens once per recording rather than once per analyser.
         """
-        try:
-            wav_bytes = decode_to_wav(audio_data)
-        except AudioDecodeError as exc:
-            logger.warning("Could not decode recorded audio: %s", exc)
-            return self._degraded(str(exc))
+        if not recording:
+            return self._degraded("no audio to analyse")
 
         try:
-            y, sr = librosa.load(io.BytesIO(wav_bytes), sr=None)
+            y, sr = librosa.load(recording.as_stream(), sr=None)
 
             if y.size == 0:
                 return self._degraded("decoded audio was empty")
