@@ -16,7 +16,7 @@ from fastapi import WebSocket
 from app.config import config
 from app.models.session import SessionModel
 from app.services import emotion_service as emotion_module
-from app.services import scoring_service
+from app.services.analysis_service import AnalysisRequest, SessionAnalysisService
 from app.services.chat_service import ChatService
 from app.services.emotion_service import EmotionService
 from app.services.speech_service import SpeechService
@@ -90,6 +90,15 @@ class ConnectionManager:
         self.speech_service = SpeechService()
         self.topic_service = TopicService()
         self.voice_service = VoiceAnalysisService()
+
+        # The analysis sequence is domain work, not transport; this layer only
+        # gathers its inputs and fans the result back out.
+        self.analysis_service = SessionAnalysisService(
+            speech_service=self.speech_service,
+            voice_service=self.voice_service,
+            coach_service=self.chat_service,
+            prompt_builder=_build_feedback_prompt,
+        )
 
     # ── session state ────────────────────────────────────────────────
     def get_session(self, session_id: str) -> Optional[dict]:
@@ -298,49 +307,23 @@ class ConnectionManager:
         })
 
         duration = (datetime.now() - session["recording_start_time"]).total_seconds()
-        audio_bytes = bytes(session["audio_data"])
 
-        transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
-        speech_analysis = self.speech_service.analyze_speech_patterns(transcript_data)
-
-        # librosa feature extraction (plus the ffmpeg decode it now performs) is
-        # seconds of synchronous CPU work on a long recording; keep it off the
-        # loop so other sessions keep receiving frames while it runs.
-        voice_analysis = await asyncio.to_thread(self.voice_service.analyze_audio, audio_bytes)
-        tone_description = self.voice_service.get_tone_description(voice_analysis)
-
-        emotion_summary = self.get_session_summary(session_id)
-
-        feedback = await self.generate_feedback(
-            session_id, duration, transcript_data, speech_analysis,
-            tone_description, voice_analysis, emotion_summary,
+        request = AnalysisRequest(
+            session_id=session_id,
+            audio=bytes(session["audio_data"]),
+            duration=duration,
+            topic=session.get("topic", {}),
+            emotion_summary=self.get_session_summary(session_id),
+            audio_truncated=session.get("audio_truncated", False),
         )
 
-        overall_score = scoring_service.calculate_overall_score(
-            speech_analysis, voice_analysis, emotion_summary,
-        )
+        analysis = await self.analysis_service.analyze(request)
 
-        self.save_session_to_db(
-            session_id, transcript_data, speech_analysis, voice_analysis,
-            emotion_summary, feedback, duration, overall_score,
-        )
+        self.save_session_to_db(session_id, analysis)
 
         await self.send_message(session_id, {
             "type": "analysis_complete",
-            "results": {
-                "transcript": transcript_data.get("text", ""),
-                "transcript_is_mock": bool(transcript_data.get("is_mock")),
-                "transcript_error": transcript_data.get("error"),
-                "speech_analysis": speech_analysis,
-                "voice_analysis": voice_analysis,
-                "voice_analysis_degraded": bool(voice_analysis.get("degraded")),
-                "tone_description": tone_description,
-                "emotion_summary": emotion_summary,
-                "feedback": feedback,
-                "duration": duration,
-                "overall_score": overall_score,
-                "audio_truncated": session.get("audio_truncated", False),
-            },
+            "results": analysis.to_payload(),
         })
 
         # The session may have been torn down while the analysis was awaiting.
@@ -350,23 +333,6 @@ class ConnectionManager:
         logger.info("Analysis complete for session %s", session_id)
 
     # ── chat + summaries ─────────────────────────────────────────────
-    async def generate_feedback(self, session_id: str, duration: float, transcript_data: Dict,
-                                speech_analysis: Dict, tone_description: str,
-                                voice_analysis: Dict, emotion_summary: Dict) -> str:
-        """Generate comprehensive AI feedback"""
-        session = self.get_session(session_id)
-        topic = (session or {}).get("topic", {})
-
-        prompt = _build_feedback_prompt(
-            topic, duration, transcript_data, speech_analysis,
-            tone_description, voice_analysis, emotion_summary,
-        )
-        # record_history=False: this machine-generated prompt should not become
-        # part of the user-visible conversation context.
-        return await self.chat_service.get_coach_response(
-            session_id, prompt, emotion_summary, record_history=False,
-        )
-
     async def process_chat_message(self, session_id: str, prompt: str):
         """Handle chat messages"""
         if not prompt:
@@ -415,38 +381,19 @@ class ConnectionManager:
             "emotion_summary": summary,
         }
 
-    def save_session_to_db(self, session_id: str, transcript_data: Dict,
-                           speech_analysis: Dict, voice_analysis: Dict,
-                           emotion_summary: Dict, feedback: str, duration: float,
-                           overall_score: Optional[float]):
-        """Save session data to database"""
+    def save_session_to_db(self, session_id: str, analysis) -> None:
+        """Persist a finished analysis.
+
+        The row layout lives on SessionAnalysis.to_record so the wire payload and
+        the stored record are derived from one object and cannot drift apart.
+        """
         session = self.get_session(session_id)
         if session is None:
             logger.warning("Session %s vanished before its results could be saved.", session_id)
             return
 
-        topic = session.get("topic", {})
-        emotions = (emotion_summary or {}).get("emotion_summary", {}) or {}
-
-        record = {
-            "session_id": session_id,
-            "topic_id": topic.get("id"),
-            "topic_text": topic.get("topic"),
-            "duration": duration,
-            # Placeholder transcripts are not stored as if they were real speech.
-            "transcript": "" if transcript_data.get("is_mock") else transcript_data.get("text", ""),
-            "word_count": speech_analysis.get("word_count", 0),
-            "words_per_minute": speech_analysis.get("words_per_minute", 0),
-            "voice_analysis": voice_analysis,
-            "confidence_score": voice_analysis.get("confidence_score"),
-            "emotion_summary": emotions,
-            "dominant_emotion": emotions.get("dominant"),
-            "ai_feedback": feedback,
-            "overall_score": overall_score,
-        }
-
+        record = analysis.to_record(session_id, session.get("topic", {}))
         if SessionModel.create_session(sanitize(record)) is not None:
             logger.info("Session %s saved to database", session_id)
-
 
 manager = ConnectionManager()
