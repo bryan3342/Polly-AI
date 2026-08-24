@@ -333,7 +333,7 @@ class ConnectionManager:
         )
         # record_history=False: this machine-generated prompt should not become
         # part of the user-visible conversation context.
-        return await self.chat_service.get_gpt_response(
+        return await self.chat_service.get_coach_response(
             session_id, prompt, emotion_summary, record_history=False,
         )
 
@@ -349,7 +349,7 @@ class ConnectionManager:
         summary = self.get_session_summary(session_id)
         # ChatService owns conversation history; storing a second copy on the
         # session would be a duplicate source of truth.
-        reply = await self.chat_service.get_gpt_response(session_id, prompt, summary)
+        reply = await self.chat_service.get_coach_response(session_id, prompt, summary)
 
         await self.send_message(session_id, {
             "type": "chat_response",
