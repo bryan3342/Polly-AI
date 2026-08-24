@@ -30,6 +30,11 @@ class Config:
     # connection can grow the process heap without limit.
     MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", 25 * 1024 * 1024))   # 25 MB
     MAX_EMOTION_FRAMES = int(os.getenv("MAX_EMOTION_FRAMES", 3600))         # ~1 hr at 1 fps
+    # How many emotion inferences may run concurrently on worker threads. The
+    # TensorFlow graph behind DeepFace is not safely reentrant and the default
+    # Fly VM is a single shared CPU, so this stays low; raise it alongside cpus
+    # in fly.toml if frames start queueing.
+    MAX_CONCURRENT_INFERENCES = int(os.getenv("MAX_CONCURRENT_INFERENCES", 2))
 
 
 config = Config()

@@ -5,6 +5,7 @@ JSON sanitization, domain scoring, and prompt construction live in their own
 modules so this layer stays focused on transport.
 """
 
+import asyncio
 import base64
 import logging
 from datetime import datetime
@@ -80,6 +81,9 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
         self.session_data: Dict[str, dict] = {}
+        # Bounds concurrent emotion inference across all sessions; see
+        # config.MAX_CONCURRENT_INFERENCES.
+        self._inference_slots = asyncio.Semaphore(config.MAX_CONCURRENT_INFERENCES)
 
         self.emotion_service = EmotionService()
         self.chat_service = ChatService()
@@ -173,10 +177,25 @@ class ConnectionManager:
         await websocket.send_json(sanitize(message))
 
     # ── frame handling ───────────────────────────────────────────────
+    def _analyze_frame_blocking(self, frame_data: str) -> Dict:
+        """JPEG decode + DeepFace inference. Runs on a worker thread."""
+        frame = base64_to_image(frame_data)
+        return self.emotion_service.analyze_frame(frame) or emotion_module.empty_result()
+
     async def process_frame(self, session_id: str, frame_data: str, timestamp: float):
         try:
-            frame = base64_to_image(frame_data)
-            result = self.emotion_service.analyze_frame(frame) or emotion_module.empty_result()
+            # Base64/JPEG decoding and DeepFace inference are both CPU-bound and
+            # synchronous. Run directly in this coroutine they blocked the whole
+            # event loop for every connected session on every frame, at one
+            # frame per second per client.
+            #
+            # The semaphore bounds how many inferences run at once: the
+            # underlying TensorFlow graph is not safely reentrant, and letting
+            # N clients each start an inference would thrash CPU and memory on
+            # a shared-CPU instance. Requests beyond the limit wait their turn
+            # instead of piling onto the loop.
+            async with self._inference_slots:
+                result = await asyncio.to_thread(self._analyze_frame_blocking, frame_data)
         except Exception:
             logger.exception("Error processing frame for session %s", session_id)
             result = emotion_module.empty_result()
@@ -276,7 +295,10 @@ class ConnectionManager:
         transcript_data = await self.speech_service.transcribe_audio(audio_bytes)
         speech_analysis = self.speech_service.analyze_speech_patterns(transcript_data)
 
-        voice_analysis = self.voice_service.analyze_audio(audio_bytes)
+        # librosa feature extraction (plus the ffmpeg decode it now performs) is
+        # seconds of synchronous CPU work on a long recording; keep it off the
+        # loop so other sessions keep receiving frames while it runs.
+        voice_analysis = await asyncio.to_thread(self.voice_service.analyze_audio, audio_bytes)
         tone_description = self.voice_service.get_tone_description(voice_analysis)
 
         emotion_summary = self.get_session_summary(session_id)

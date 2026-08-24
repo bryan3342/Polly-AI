@@ -7,6 +7,11 @@ python-dotenv>=1.0.0
 # tests can import it in CI without dragging in tensorflow/librosa/opencv.
 google-genai>=1.0.0,<3.0.0
 
+# The transport layer is imported by the event-loop offloading tests; fastapi
+# and its deps are pure Python, unlike the ML stack it transitively imports
+# (those are stubbed in the test module).
+fastapi>=0.104.0,<1.0.0
+
 # Imported directly by the unit suite:
 #   numpy      -> utils.serialization round-trip tests
 #   sqlalchemy -> session statistics tests (in-memory SQLite)
