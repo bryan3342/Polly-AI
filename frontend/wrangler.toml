@@ -1,0 +1,8 @@
+# Cloudflare Pages configuration for the Polly AI frontend.
+#
+# Pages serves the built SPA only. The backend cannot run here: it needs
+# TensorFlow, OpenCV, librosa and an ffmpeg binary, none of which exist in a
+# Workers isolate. Point VITE_WS_URL at wherever the backend is hosted.
+name = "polly-ai"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-08-24"
