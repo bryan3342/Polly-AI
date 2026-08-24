@@ -72,6 +72,47 @@ from collection by `pytest.ini` and must never run in CI.
 | First frame takes ~30s | One-off DeepFace weight download |
 | `Format not recognised` in logs | ffmpeg not on `PATH` |
 
+## Deploying
+
+The app is one process in production: FastAPI serves the built SPA *and* handles
+WebSockets, so a single host runs everything (see `Dockerfile` and `fly.toml`).
+
+### Splitting the frontend onto Cloudflare Pages
+
+The frontend can be hosted separately — Cloudflare Pages serves it free — but
+**the backend cannot run there**. Pages runs static assets plus Workers (V8
+isolates, 128 MB, no arbitrary binaries); this backend needs TensorFlow,
+OpenCV, librosa and an `ffmpeg` binary. Python Workers run on Pyodide and
+support none of them. The backend needs a container host.
+
+Frontend, on Cloudflare Pages:
+
+| Setting | Value |
+|---|---|
+| Root directory | `frontend` |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Environment variable | `VITE_WS_URL` = `wss://your-backend-host` |
+
+`public/_redirects` provides the SPA fallback and `public/_headers` sets the
+security and caching headers; both are picked up automatically.
+
+`VITE_WS_URL` is baked in at **build time**, not read at runtime — changing it
+requires a rebuild. Without it the client derives the WebSocket URL from
+`window.location`, which is correct for the single-host deploy and wrong for a
+split one.
+
+From the CLI:
+
+```bash
+cd frontend
+npx wrangler login
+npx wrangler pages deploy dist --project-name polly-ai
+```
+
+Backend hosts that can actually run it: Fly.io (`fly.toml` is committed),
+Render, Railway, Hugging Face Spaces, or any Docker host with ~2 GB of RAM.
+
 ## Secrets & environment
 
 The backend reads configuration from environment variables via `python-dotenv`
