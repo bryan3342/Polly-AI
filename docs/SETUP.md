@@ -77,6 +77,28 @@ from collection by `pytest.ini` and must never run in CI.
 The app is one process in production: FastAPI serves the built SPA *and* handles
 WebSockets, so a single host runs everything (see `Dockerfile` and `fly.toml`).
 
+### Hugging Face Spaces (free, hosts the whole app)
+
+The Space runs the same `Dockerfile` as every other target, so the backend
+*and* the frontend are served from one URL — no split, no `VITE_WS_URL`. The
+free CPU tier provides 2 vCPU and 16 GB of RAM, which is what the TensorFlow
+dependency needs, and it requires no payment card.
+
+```bash
+# 1. Create an empty Space (Docker SDK) at https://huggingface.co/new-space
+# 2. Create a write token at https://huggingface.co/settings/tokens
+HF_TOKEN=hf_... ./deploy/huggingface/deploy.sh <your-hf-username> polly-ai
+```
+
+The first build takes roughly ten minutes — the TensorFlow layer dominates.
+Afterwards the app is at `https://<username>-polly-ai.hf.space`.
+
+For transcription and coaching, add `GEMINI_API_KEY` under the Space's
+**Settings → Variables and secrets**. Without it the camera, face detection,
+emotion tracking and voice measurement still work.
+
+Storage on a Space is ephemeral: saved sessions do not survive a restart.
+
 ### Splitting the frontend onto Cloudflare Pages
 
 The frontend can be hosted separately — Cloudflare Pages serves it free — but

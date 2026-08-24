@@ -117,6 +117,20 @@ is needed; set `VITE_WS_URL` only if your backend runs somewhere other than
 
 ---
 
+## Deployment
+
+The whole app — API, WebSocket and the built frontend — runs as **one process**,
+so a single container host serves everything from one URL.
+
+| Host | Notes |
+|---|---|
+| **Hugging Face Spaces** | Free, 2 vCPU / 16 GB, no payment card. `./deploy/huggingface/deploy.sh` — see [docs/SETUP.md](docs/SETUP.md) |
+| **Fly.io** | `fly.toml` is committed; guide below |
+| Cloudflare Pages | Frontend only — Workers cannot run TensorFlow, librosa or ffmpeg |
+
+The container reads `PORT` (default 8080), so it runs unchanged on Fly (8080),
+Spaces (7860) and Cloud Run (injected).
+
 ## Deployment Guide (Fly.io — Single Deploy, Free Tier)
 
 The entire app (frontend + backend) deploys as **one service** on Fly.io. FastAPI serves the built React files and handles WebSocket connections from the same process. One URL, always on.
