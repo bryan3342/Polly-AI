@@ -11,7 +11,7 @@ import types as pytypes
 import pytest
 
 from app.services.speech_service import SpeechService
-from app.utils.audio import ffmpeg_available
+from app.utils.audio import DecodedRecording, ffmpeg_available
 
 needs_ffmpeg = pytest.mark.skipif(
     not ffmpeg_available(), reason="ffmpeg is required to decode recorded audio"
@@ -45,14 +45,19 @@ def _with_client(reply=None, error=None):
     return svc
 
 
-def _spoken_audio(seconds: float = 2.0) -> bytes:
-    """A tone in a WebM/Opus container, shaped like a MediaRecorder upload."""
-    return subprocess.run(
+def _spoken_audio(seconds: float = 2.0) -> DecodedRecording:
+    """A decoded tone, as the analyser hands it to the service.
+
+    Decoding is the caller's responsibility now, so the service is given a
+    DecodedRecording rather than the raw upload.
+    """
+    upload = subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-f", "lavfi",
          "-i", f"sine=frequency=180:duration={seconds}",
          "-c:a", "libopus", "-f", "webm", "pipe:1"],
         stdout=subprocess.PIPE, check=True,
     ).stdout
+    return DecodedRecording.from_upload(upload)
 
 
 def _run(coro):
@@ -75,11 +80,13 @@ class TestTranscribeAudio:
         assert result["is_mock"] is True
         assert "GEMINI_API_KEY" in result["error"]
 
-    def test_undecodable_audio_is_reported_not_transcribed(self, service):
-        result = _run(service.transcribe_audio(b"not audio at all"))
+    def test_no_recording_is_reported_not_transcribed(self, service):
+        """The caller passes None when the upload could not be decoded."""
+        result = _run(service.transcribe_audio(None))
 
         assert result["text"] == ""
         assert result["is_mock"] is True
+        assert "no audio" in result["error"]
 
     @needs_ffmpeg
     def test_returns_the_transcript_and_measures_the_recording(self):
@@ -215,7 +222,7 @@ class TestAnalyzeSpeechPatterns:
 
     def test_mock_flag_propagates_into_the_analysis(self, service):
         """Metrics derived from unusable text must stay labelled as such."""
-        transcript = _run(service.transcribe_audio(b""))
+        transcript = _run(service.transcribe_audio(None))
         assert transcript["is_mock"] is True
         # No text means no metrics at all, which is the honest result.
         assert service.analyze_speech_patterns(transcript) == {}

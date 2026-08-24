@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from app.services import scoring_service
+from app.utils.audio import AudioDecodeError, DecodedRecording
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +121,17 @@ class SessionAnalysisService:
         self._build_prompt = prompt_builder
 
     async def analyze(self, request: AnalysisRequest) -> SessionAnalysis:
-        transcript_data = await self._speech.transcribe_audio(request.audio)
+        # Decode once here rather than in each analyser: both need PCM, and
+        # decoding twice meant two ffmpeg subprocesses per recording and two
+        # places that had to agree on the decode settings.
+        recording = await asyncio.to_thread(self._decode, request.audio)
+
+        transcript_data = await self._speech.transcribe_audio(recording)
         speech_analysis = self._speech.analyze_speech_patterns(transcript_data)
 
         # librosa feature extraction is seconds of synchronous CPU work on a long
         # recording; keep it off the loop so other sessions keep receiving frames.
-        voice_analysis = await asyncio.to_thread(self._voice.analyze_audio, request.audio)
+        voice_analysis = await asyncio.to_thread(self._voice.analyze_audio, recording)
         tone_description = self._voice.get_tone_description(voice_analysis)
 
         overall_score = scoring_service.calculate_overall_score(
@@ -149,6 +155,22 @@ class SessionAnalysisService:
             overall_score=overall_score,
             audio_truncated=request.audio_truncated,
         )
+
+    @staticmethod
+    def _decode(audio: bytes) -> Optional[DecodedRecording]:
+        """Decode the upload, or None if it cannot be read.
+
+        A failure here is reported by each analyser as its own degraded result,
+        so the report explains what could not be measured instead of the whole
+        analysis raising.
+        """
+        if not audio:
+            return None
+        try:
+            return DecodedRecording.from_upload(audio)
+        except AudioDecodeError as exc:
+            logger.warning("Recording could not be decoded: %s", exc)
+            return None
 
     async def _generate_feedback(self, request: AnalysisRequest, transcript_data: Dict,
                                  speech_analysis: Dict, tone_description: str,
