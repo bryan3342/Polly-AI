@@ -1,8 +1,29 @@
-from deepface import DeepFace
+import logging
+from datetime import datetime
+from typing import Dict, List, Optional
+
 import cv2
 import numpy as np
-from typing import Dict, List, Optional
-from datetime import datetime
+from deepface import DeepFace
+
+logger = logging.getLogger(__name__)
+
+
+def empty_result() -> Dict:
+    """The canonical 'no face / no analysis' emotion payload.
+
+    Single source of truth: the transport layer and the error paths all build
+    this shape, so it lives in one place to keep them from drifting apart.
+    """
+    return {
+        'emotions': None,
+        'dominant_emotion': None,
+        'confidence': 0.0,
+        'face_detected': False,
+        'bounding_box': None,
+        'timestamp': datetime.now().isoformat(),
+    }
+
 
 class EmotionService:
     def __init__(self):
@@ -12,7 +33,7 @@ class EmotionService:
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
-        print("Emotion Detection Model Loading")
+        logger.info("EmotionService initialized; emotion model loads on first frame.")
 
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
         try:
@@ -20,14 +41,7 @@ class EmotionService:
             faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
 
             if len(faces) == 0:
-                return {
-                    'emotions': None,
-                    'dominant_emotion': None,
-                    'confidence': 0.0,
-                    'face_detected': False,
-                    'bounding_box': None,
-                    'timestamp': datetime.now().isoformat()
-                }
+                return empty_result()
 
             (x, y, w, h) = faces[0]
             bounding_box = [int(x), int(y), int(w), int(h)]
@@ -60,16 +74,9 @@ class EmotionService:
                 'timestamp': datetime.now().isoformat()
             }
 
-        except Exception as e:
-            print(f"Error in emotion analysis: {str(e)}")
-            return {
-                'emotions': None,
-                'dominant_emotion': None,
-                'confidence': 0.0,
-                'face_detected': False,
-                'bounding_box': None,
-                'timestamp': datetime.now().isoformat()
-            }
+        except Exception:
+            logger.exception("Emotion analysis failed for frame")
+            return empty_result()
 
     def calculate_summary(self, emotion_timeline: List[Dict]) -> Dict:
         if not emotion_timeline:

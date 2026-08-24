@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { useWS } from '../context/WebSocketContext';
+import { useWS } from '../context/wsContext';
 import { FaVideoSlash } from 'react-icons/fa';
 
 export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady }) {
@@ -61,7 +61,11 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             r.onstop = () => {
                 const blob = new Blob(chunksRef.current, { type: mime });
                 const rd = new FileReader();
-                rd.onloadend = () => cbRef.current?.(rd.result);
+                // Always notify, even on read failure -- the callback is what tells
+                // the backend the recording ended, so swallowing an error here
+                // would strand the session in "recording" forever.
+                rd.onload  = () => cbRef.current?.(rd.result);
+                rd.onerror = () => { console.error('Audio read failed', rd.error); cbRef.current?.(null); };
                 rd.readAsDataURL(blob);
             };
             r.start(1000);

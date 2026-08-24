@@ -1,12 +1,17 @@
+import io
+import logging
+from typing import Dict
+
 import librosa
 import numpy as np
-from typing import Dict
-import io
+
+logger = logging.getLogger(__name__)
+
 
 class VoiceAnalysisService:
     def __init__(self):
-        print("VoiceAnalysisService initialized.")
-    
+        logger.info("VoiceAnalysisService initialized.")
+
     def analyze_audio(self, audio_data: bytes) -> Dict:
         """
         Analyze audio for tone, pitch, energy, and confidence indicators
@@ -66,17 +71,21 @@ class VoiceAnalysisService:
             return analysis
             
         except Exception as e:
-            print(f"Error in voice analysis: {str(e)}")
+            logger.exception("Voice analysis failed")
+            # Return a result explicitly marked as degraded rather than inventing a
+            # mid-range confidence_score. A fabricated score would flow into the
+            # overall rating and be persisted as if it had been measured.
             return {
-                "average_pitch": 0,
-                "pitch_variance": 0,
-                "average_energy": 0,
-                "energy_variance": 0,
-                "articulation_rate": 0,
-                "voice_brightness": 0,
-                "confidence_score": 50,
-                "duration": 0,
-                "error": str(e)
+                "average_pitch": None,
+                "pitch_variance": None,
+                "average_energy": None,
+                "energy_variance": None,
+                "articulation_rate": None,
+                "voice_brightness": None,
+                "confidence_score": None,
+                "duration": None,
+                "degraded": True,
+                "error": str(e),
             }
     
     def _calculate_confidence(self, energy: float, pitch_var: float, energy_var: float) -> int:
@@ -103,10 +112,15 @@ class VoiceAnalysisService:
     
     def get_tone_description(self, analysis: Dict) -> str:
         """Convert analysis metrics into human-readable tone description"""
-        confidence = analysis.get("confidence_score", 50)
-        energy = analysis.get("average_energy", 0)
-        pitch_var = analysis.get("pitch_variance", 0)
-        
+        if not analysis or analysis.get("degraded"):
+            return "unavailable"
+
+        confidence = analysis.get("confidence_score")
+        energy = analysis.get("average_energy")
+        pitch_var = analysis.get("pitch_variance")
+        if confidence is None or energy is None or pitch_var is None:
+            return "unavailable"
+
         descriptions = []
         
         # Confidence

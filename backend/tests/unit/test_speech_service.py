@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from app.services.speech_service import SpeechService
@@ -12,14 +10,20 @@ def service():
 
 class TestTranscribeAudio:
     def test_returns_mock_transcript_shape(self, service):
-        result = asyncio.run(service.transcribe_audio(b"fake-audio-bytes"))
+        # transcribe_audio is synchronous: it was previously declared `async`
+        # with nothing to await, which misrepresented it as doing I/O.
+        result = service.transcribe_audio(b"fake-audio-bytes")
 
-        assert set(result) == {"text", "segments", "duration", "language"}
+        assert set(result) == {"text", "segments", "duration", "language", "is_mock"}
         assert result["text"]
         assert result["duration"] == 15.0
         assert result["language"] == "en"
         for segment in result["segments"]:
             assert segment["end"] > segment["start"]
+
+    def test_placeholder_transcript_is_flagged(self, service):
+        """The transcript is fabricated, so it must be labelled as such."""
+        assert service.transcribe_audio(b"")["is_mock"] is True
 
 
 class TestAnalyzeSpeechPatterns:
@@ -44,7 +48,6 @@ class TestAnalyzeSpeechPatterns:
         assert result["words_per_minute"] == 60.0
 
     def test_filler_words_counted(self, service):
-        # Fillers are only counted when surrounded by spaces (current behavior).
         text = "I um think that we should uh reconsider the whole plan"
         result = service.analyze_speech_patterns({"text": text, "segments": [], "duration": 10})
 
@@ -57,6 +60,25 @@ class TestAnalyzeSpeechPatterns:
 
         assert result["filler_word_count"] == 0
         assert result["filler_percentage"] == 0
+
+    def test_fillers_at_string_boundaries_and_back_to_back(self, service):
+        """Counting is tokenized rather than a scan for ' um ' with surrounding spaces.
+
+        A substring scan misses a filler that starts or ends the transcript, and
+        counts adjacent fillers once because they share the separating space.
+        """
+        result = service.analyze_speech_patterns(
+            {"text": "um the point um um stands uh", "segments": [], "duration": 60}
+        )
+
+        assert result["filler_word_count"] == 4
+
+    def test_fillers_matched_despite_punctuation(self, service):
+        result = service.analyze_speech_patterns(
+            {"text": "Um, I think, actually, we agree.", "segments": [], "duration": 60}
+        )
+
+        assert result["filler_word_count"] == 2
 
     def test_pause_detection_ignores_short_gaps(self, service):
         segments = [
@@ -77,3 +99,8 @@ class TestAnalyzeSpeechPatterns:
 
         assert result["pause_count"] == 0
         assert result["average_pause_duration"] == 0
+
+    def test_mock_flag_propagates_into_the_analysis(self, service):
+        """Metrics derived from placeholder text must stay labelled as such."""
+        transcript = service.transcribe_audio(b"")
+        assert service.analyze_speech_patterns(transcript)["is_mock"] is True

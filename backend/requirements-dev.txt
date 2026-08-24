@@ -3,3 +3,9 @@
 # NOT installed in CI — unit tests must mock anything that needs them.
 pytest>=8.0
 python-dotenv>=1.0.0
+
+# Imported directly by the unit suite:
+#   numpy      -> utils.serialization round-trip tests
+#   sqlalchemy -> session statistics tests (in-memory SQLite)
+numpy>=1.24.0,<3.0.0
+sqlalchemy>=2.0.23,<3.0.0
