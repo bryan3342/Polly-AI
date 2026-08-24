@@ -132,6 +132,14 @@ class ConnectionManager:
 
         logger.info("Session %s connected.", session_id)
 
+        # The client no longer chooses its own id, so it is told what it got.
+        # Useful for correlating client-side logs with server logs; it is not a
+        # credential the client needs to send back.
+        await self.send_message(session_id, {
+            "type": "session_assigned",
+            "session_id": session_id,
+        })
+
         await self.send_message(session_id, {
             "type": "topic_assigned",
             "topic": topic,
