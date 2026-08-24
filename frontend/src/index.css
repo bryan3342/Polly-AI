@@ -5,7 +5,10 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 /* ── App shell — CSS Grid locks everything to viewport ── */
 .app {
     display: grid;
-    grid-template-rows: 48px 1fr 64px;
+    /* Row 1 absorbs the error banner and collapses to 0 when there is none.
+       Every child is pinned to its row explicitly: relying on source order
+       would push .main into the 48px header row whenever the banner is absent. */
+    grid-template-rows: auto 48px 1fr 64px;
     height: 100%;
     background: #080C1A;
     color: #e2e8f0;
@@ -13,6 +16,7 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 
 /* ── Header ───────────────────────────────────────── */
 .header {
+    grid-row: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -57,6 +61,7 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 
 /* ── Main panel — two-column grid ─────────────────── */
 .main {
+    grid-row: 3;
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 16px;
@@ -389,6 +394,7 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 
 /* ── Toolbar ──────────────────────────────────────── */
 .toolbar {
+    grid-row: 4;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -450,8 +456,11 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 
 /* ── Error banner ─────────────────────────────────── */
 .error-banner {
-    position: fixed;
-    top: 0; left: 0; right: 0;
+    /* Sits in the grid flow rather than fixed over the top of the page: as a
+       fixed overlay it covered the 48px header, hiding the brand and the
+       connection indicator at exactly the moment the user needs to see the
+       connection state. */
+    grid-row: 1;
     z-index: 50;
     background: rgba(127,29,29,.7);
     backdrop-filter: blur(4px);
