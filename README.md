@@ -1,6 +1,10 @@
-# Polly AI
+<p align="center">
+  <img src="frontend/public/polly-mark.svg" width="96" alt="Polly AI" />
+</p>
 
-**AI-Powered Debate Coach with Real-Time Multimodal Analysis**
+<h1 align="center">Polly AI</h1>
+
+<p align="center"><strong>AI-Powered Debate Coach with Real-Time Multimodal Analysis</strong></p>
 
 ## Overview
 
