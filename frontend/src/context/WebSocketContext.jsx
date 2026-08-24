@@ -7,8 +7,11 @@ function getWsBase() {
     return `${proto}//${window.location.host}`;
 }
 const WS_BASE = getWsBase();
-const SID = 'user-' + (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 9));
-const WS_URL = `${WS_BASE}/ws/${SID}`;
+// The server mints the session id and announces it in a `session_assigned`
+// message. It used to be generated here and passed in the URL, which the server
+// trusted verbatim: connecting with somebody else's id attached you to their
+// live session (issue #21).
+const WS_URL = `${WS_BASE}/ws`;
 const FRAME_MS = 1000;
 
 export function WebSocketProvider({ children }) {
@@ -18,6 +21,7 @@ export function WebSocketProvider({ children }) {
     const [topic, setTopic]             = useState(null);
     const [processing, setProcessing]   = useState(false);
     const [error, setError]             = useState(null);
+    const [sessionId, setSessionId]     = useState(null);
     const ws   = useRef(null);
     const reco = useRef(null);
 
@@ -38,6 +42,7 @@ export function WebSocketProvider({ children }) {
         ws.current.onmessage = (e) => {
             let m; try { m = JSON.parse(e.data); } catch { return; }
             switch (m.type) {
+                case 'session_assigned':  setSessionId(m.session_id); break;
                 case 'emotion_update':    setEmotion(m.data); break;
                 case 'topic_assigned':    setTopic(m.topic); break;
                 case 'recording_started': break;
@@ -101,7 +106,7 @@ export function WebSocketProvider({ children }) {
     const newTopic       = useCallback(() => send({ type: 'request_new_topic' }), [send]);
 
     return (
-        <Ctx.Provider value={{ connected, emotion, chat, topic, processing, error,
+        <Ctx.Provider value={{ connected, emotion, chat, topic, processing, error, sessionId,
             sendFrame, sendChat, startRecording, stopRecording, sendAudio, newTopic, FRAME_MS }}>
             {children}
         </Ctx.Provider>
