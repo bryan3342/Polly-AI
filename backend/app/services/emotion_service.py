@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -40,7 +41,36 @@ class EmotionService:
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
-        logger.info("EmotionService initialized; emotion model loads on first frame.")
+        logger.info("EmotionService initialized.")
+
+    def warm_up(self) -> bool:
+        """Build the emotion model before the first request needs it.
+
+        Constructing it lazily meant the first frame of the first session paid
+        for it, which reads to that user as the app being broken. Returns
+        whether the model is ready; a failure here is logged and left to the
+        per-frame error handling rather than stopping the server, since every
+        other feature still works without it.
+        """
+        try:
+            DeepFace.build_model("Emotion", task="facial_attribute")
+
+            # Build the model *and* push one synthetic frame through the real
+            # entry point. Constructing the model alone leaves the first genuine
+            # frame paying for the graph trace, the Haar cascade's first run and
+            # the JPEG decode path — measured at 130ms, which a user experiences
+            # as the app stalling on the very first frame of their session.
+            blank = np.zeros((64, 64, 3), dtype=np.uint8)
+            encoded = cv2.imencode(".jpg", blank)[1].tobytes()
+            self.analyze_encoded_frame(
+                "data:image/jpeg;base64," + base64.b64encode(encoded).decode()
+            )
+
+            logger.info("Emotion model warmed up and ready.")
+            return True
+        except Exception:
+            logger.exception("Could not warm up the emotion model; it will load on first use.")
+            return False
 
     @staticmethod
     def crop_face(frame: np.ndarray, box, margin: float = FACE_MARGIN) -> np.ndarray:
