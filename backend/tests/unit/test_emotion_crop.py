@@ -31,6 +31,8 @@ _stub("cv2", data=types.SimpleNamespace(haarcascades=""),
       CascadeClassifier=lambda *a, **k: None, cvtColor=lambda img, code: img,
       COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1)
 _stub("deepface", DeepFace=types.SimpleNamespace(analyze=lambda *a, **k: []))
+_pil_image = _stub("PIL.Image", Image=type("Image", (), {}), open=lambda *a, **k: None)
+_stub("PIL", Image=_pil_image)
 
 from app.services.emotion_service import FACE_MARGIN, EmotionService  # noqa: E402
 

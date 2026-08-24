@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.websocket import manager
+from app.container import build_connection_manager
 from app.config import config
 from app.database import init_db
 from app.utils.paths import resolve_within
@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Polly AI Debate Coach")
 
 init_db()
+
+# The composition root builds the service graph; this module only routes.
+manager = build_connection_manager()
 
 # CORS middleware — explicit origins only; "*" with allow_credentials=True is
 # invalid per the CORS spec and over-permissive (issue #22).
