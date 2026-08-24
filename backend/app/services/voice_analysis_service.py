@@ -5,6 +5,8 @@ from typing import Dict
 import librosa
 import numpy as np
 
+from app.utils.audio import AudioDecodeError, decode_to_wav
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,16 +15,24 @@ class VoiceAnalysisService:
         logger.info("VoiceAnalysisService initialized.")
 
     def analyze_audio(self, audio_data: bytes) -> Dict:
-        """
-        Analyze audio for tone, pitch, energy, and confidence indicators
-        Note: This requires librosa to be installed
+        """Analyze recorded audio for tone, pitch, energy and confidence.
+
+        `audio_data` is the raw MediaRecorder upload (WebM/Opus, or MP4/AAC on
+        Safari). librosa cannot read either container, so it is transcoded to
+        PCM WAV first; without that step every call landed in the degraded
+        branch below.
         """
         try:
-            # Load audio from bytes
-            audio_file = io.BytesIO(audio_data)
-            
-            # Load with librosa (will handle format conversion)
-            y, sr = librosa.load(audio_file, sr=None)
+            wav_bytes = decode_to_wav(audio_data)
+        except AudioDecodeError as exc:
+            logger.warning("Could not decode recorded audio: %s", exc)
+            return self._degraded(str(exc))
+
+        try:
+            y, sr = librosa.load(io.BytesIO(wav_bytes), sr=None)
+
+            if y.size == 0:
+                return self._degraded("decoded audio was empty")
             
             # Calculate various audio features
             analysis = {}
@@ -72,21 +82,28 @@ class VoiceAnalysisService:
             
         except Exception as e:
             logger.exception("Voice analysis failed")
-            # Return a result explicitly marked as degraded rather than inventing a
-            # mid-range confidence_score. A fabricated score would flow into the
-            # overall rating and be persisted as if it had been measured.
-            return {
-                "average_pitch": None,
-                "pitch_variance": None,
-                "average_energy": None,
-                "energy_variance": None,
-                "articulation_rate": None,
-                "voice_brightness": None,
-                "confidence_score": None,
-                "duration": None,
-                "degraded": True,
-                "error": str(e),
-            }
+            return self._degraded(str(e))
+
+    @staticmethod
+    def _degraded(reason: str) -> Dict:
+        """A result explicitly marked unmeasured.
+
+        Never invents a mid-range confidence_score: a fabricated number would
+        flow into the overall rating and be persisted as if it had been measured.
+        """
+        return {
+            "average_pitch": None,
+            "pitch_variance": None,
+            "average_energy": None,
+            "energy_variance": None,
+            "articulation_rate": None,
+            "voice_brightness": None,
+            "confidence_score": None,
+            "duration": None,
+            "degraded": True,
+            "error": reason,
+        }
+
     
     def _calculate_confidence(self, energy: float, pitch_var: float, energy_var: float) -> int:
         """
