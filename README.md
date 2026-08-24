@@ -16,12 +16,13 @@ Record a debate response, and Polly AI analyzes your **facial expressions, vocal
 
 ## Features
 
-- **Facial Emotion Detection** — Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.) using DeepFace + OpenCV, streamed at 1 frame/second
-- **Voice & Tone Analysis** — Evaluates pitch, energy, confidence, articulation, and vocal stability using librosa
-- **Speech Pattern Analysis** — Measures words-per-minute, filler word usage, pause frequency
-- **AI Debate Coaching** — Conversational Gemini AI agent that assigns debate topics, answers questions, and provides detailed feedback
-- **Performance Scoring** — Overall score (0-100) combining speech, voice confidence, and emotional composure
-- **Session Persistence** — All sessions saved to SQLite with full analysis history
+- **Facial Emotion Detection** — Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region, at 1 frame/second
+- **Speech-to-Text** — Recordings are transcribed by Gemini, verbatim, with filler words preserved
+- **Voice & Tone Analysis** — Pitch, energy, confidence, articulation and vocal stability via librosa
+- **Speech Pattern Analysis** — Words-per-minute and filler-word usage from the transcript; pauses measured from the waveform itself
+- **AI Debate Coaching** — Conversational Gemini agent that assigns topics, answers questions and writes the post-session report
+- **Performance Scoring** — Overall score (0-100) from speech, voice confidence and emotional composure. Components that could not be measured are left out rather than defaulted, so a number always means it was measured
+- **Session Persistence** — Sessions saved to SQLite with full analysis history
 
 ---
 
@@ -36,19 +37,20 @@ Record a debate response, and Polly AI analyzes your **facial expressions, vocal
 
 ### Backend
 - **FastAPI** — Async Python web framework with WebSocket support
-- **Google Gemini 1.5 Flash** — Debate coaching, argument evaluation, and feedback generation
+- **Google Gemini** — Transcription (`gemini-2.0-flash`) plus coaching and feedback (`gemini-2.0-flash-lite`), via the `google-genai` SDK
 - **DeepFace + TensorFlow** — Facial emotion classification from video frames
-- **librosa** — Audio feature extraction (pitch, energy, spectral analysis)
-- **SQLAlchemy + SQLite** — Session storage and analytics
+- **librosa + ffmpeg** — ffmpeg transcodes the browser's WebM/Opus recording to PCM; librosa extracts pitch, energy and spectral features
+- **SQLAlchemy + SQLite** — Session storage
 - **OpenCV** — Image preprocessing for face detection
 
 ### Architecture
 ```
 Browser ←→ WebSocket ←→ FastAPI
-                          ├── EmotionService (DeepFace)
-                          ├── VoiceAnalysisService (librosa)
-                          ├── SpeechService (transcription)
-                          ├── ChatService (Gemini AI)
+                          ├── EmotionService (OpenCV + DeepFace)
+                          ├── VoiceAnalysisService (ffmpeg + librosa)
+                          ├── SpeechService (Gemini transcription)
+                          ├── ChatService (Gemini coaching)
+                          ├── ScoringService (rubric)
                           ├── TopicService (debate topics)
                           └── SQLite (session data)
 ```
@@ -60,7 +62,12 @@ Browser ←→ WebSocket ←→ FastAPI
 ### Prerequisites
 - **Python 3.10+**
 - **Node.js 18+**
-- **Google Gemini API key** — [Get one here](https://aistudio.google.com/apikey)
+- **ffmpeg** — required to decode browser audio. `brew install ffmpeg` (macOS) or
+  `sudo apt install ffmpeg` (Debian/Ubuntu). Without it, transcription and voice
+  analysis report themselves unavailable. Already present in the Docker image.
+- **Google Gemini API key** — [Get one here](https://aistudio.google.com/apikey).
+  Without it the app still runs: the camera, emotion detection and voice analysis
+  all work, but there is no transcript and no coaching.
 
 ### 1. Clone the repository
 ```bash
@@ -167,10 +174,12 @@ The `Dockerfile` uses a multi-stage build:
 FastAPI serves everything:
 - `GET /` → React SPA (index.html)
 - `GET /assets/*` → JS/CSS bundles
-- `WS /ws/{session_id}` → WebSocket for real-time data
+- `WS /ws` → WebSocket for real-time data (the server assigns the session id)
 - `GET /api/health` → Health check
 
 The frontend auto-detects the WebSocket URL from `window.location`, so no configuration is needed.
+
+Full message protocol: [`docs/API.md`](docs/API.md).
 
 ---
 
@@ -288,13 +297,32 @@ Both backend and frontend checks run in CI on every push and pull request
 
 ---
 
-## Future Enhancements
+## Testing
 
-- Real speech-to-text transcription (Google Cloud Speech / Gemini Audio)
-- Gesture and body language analysis
-- Performance analytics dashboard with historical trends
-- Multi-language support
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+
+The unit suite runs headless and does not need the ML stack, a network
+connection or an API key — anything heavy is stubbed. `backend/tests/demos/`
+holds interactive webcam scripts and is excluded from collection.
+
+---
+
+## Roadmap
+
+- Gesture and body-language analysis
+- Performance analytics dashboard with historical trends (needs REST endpoints
+  over the stored sessions — see `docs/API.md`)
+- Multi-language transcription and coaching
 - Real-time counter-argument generation
+- User accounts, so history belongs to a person (see the auth note in
+  `docs/ARCHITECTURE.md`)
+
+**Not planned:** video file upload. Analysis is live-capture only; the
+reasoning is recorded in `docs/ARCHITECTURE.md`.
 
 ---
 
