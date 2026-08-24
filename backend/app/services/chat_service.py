@@ -2,7 +2,8 @@ import asyncio
 import logging
 from typing import Dict, List
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from app.config import config
 
@@ -12,15 +13,28 @@ MODEL_NAME = "gemini-2.0-flash-lite"
 MAX_RETRIES = 3
 MAX_HISTORY_MESSAGES = 20
 
+SYSTEM_INSTRUCTION = (
+    "You are Polly AI, an expert debate coach. You help people improve their "
+    "debate and public speaking skills through constructive feedback and encouragement. "
+    "Keep responses concise (2-4 paragraphs max) and actionable."
+)
+
 
 class ChatService:
+    """Gemini-backed debate coaching.
+
+    Uses the `google-genai` SDK. The previous `google-generativeai` package is
+    deprecated and receives no further model support (issue #28).
+    """
+
     def __init__(self):
         self.api_key = config.GEMINI_API_KEY
         if not self.api_key:
             logger.warning("GEMINI_API_KEY is not set; chat responses will be unavailable.")
 
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel(MODEL_NAME)
+        # The client is cheap to construct and thread-safe; a single instance is
+        # reused across sessions.
+        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
         self._chats: Dict[str, list] = {}  # session_id -> conversation history
         logger.info("ChatService initialized (model=%s, key_set=%s)", MODEL_NAME, bool(self.api_key))
 
@@ -33,31 +47,29 @@ class ChatService:
         """Read-only view of the conversation history for a session."""
         return list(self._chats.get(session_id, []))
 
-    def _build_conversation(self, session_id: str, prompt: str, emotion_summary: Dict = None) -> str:
-        system_context = (
-            "You are Polly AI, an expert debate coach. You help people improve their "
-            "debate and public speaking skills through constructive feedback and encouragement. "
-            "Keep responses concise (2-4 paragraphs max) and actionable."
-        )
+    def _build_contents(self, session_id: str, prompt: str) -> List[types.Content]:
+        """Turn the stored history into typed SDK turns.
 
+        The old SDK path flattened everything into one string prefixed with
+        "User:"/"Polly AI:" labels, which the model could confuse with content.
+        Roles are now carried structurally.
+        """
+        contents: List[types.Content] = []
+        for msg in self._get_history(session_id)[-MAX_HISTORY_MESSAGES:]:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
+        contents.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
+        return contents
+
+    def _build_system_instruction(self, emotion_summary: Dict = None) -> str:
+        instruction = SYSTEM_INSTRUCTION
         if emotion_summary and emotion_summary.get("emotion_summary"):
             emotions = emotion_summary.get("emotion_summary", {})
-            system_context += (
+            instruction += (
                 "\n\nThe user's current emotional state detected via camera: "
                 f"{emotions.get('dominant', 'neutral')}"
             )
-
-        recent = self._get_history(session_id)[-MAX_HISTORY_MESSAGES:]
-        conversation = f"{system_context}\n\n"
-
-        if recent:
-            conversation += "Previous conversation:\n"
-            for msg in recent:
-                role = "User" if msg["role"] == "user" else "Polly AI"
-                conversation += f"{role}: {msg['content']}\n"
-            conversation += "\n"
-
-        return conversation + f"User: {prompt}"
+        return instruction
 
     async def get_gpt_response(self, session_id: str, prompt: str,
                                emotion_summary: Dict = None,
@@ -68,10 +80,13 @@ class ChatService:
         post-session analysis prompt) so they do not pollute the user-facing
         conversation context of subsequent chat turns.
         """
-        if not self.api_key:
+        if not self.client:
             return "Error: Gemini API key is not configured. Please set GEMINI_API_KEY."
 
-        conversation = self._build_conversation(session_id, prompt, emotion_summary)
+        contents = self._build_contents(session_id, prompt)
+        gen_config = types.GenerateContentConfig(
+            system_instruction=self._build_system_instruction(emotion_summary),
+        )
 
         for attempt in range(MAX_RETRIES):
             try:
@@ -79,8 +94,15 @@ class ChatService:
                 # in this coroutine would stall the whole event loop -- freezing
                 # frame processing for every other connected session -- so it is
                 # offloaded to a worker thread.
-                response = await asyncio.to_thread(self.model.generate_content, conversation)
-                reply = response.text.strip()
+                response = await asyncio.to_thread(
+                    self.client.models.generate_content,
+                    model=MODEL_NAME,
+                    contents=contents,
+                    config=gen_config,
+                )
+                reply = (response.text or "").strip()
+                if not reply:
+                    raise ValueError("Gemini returned an empty response")
 
                 if record_history:
                     history = self._get_history(session_id)
