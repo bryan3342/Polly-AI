@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useWS } from './context/WebSocketContext';
+import { useWS } from './context/wsContext';
 import VideoBox from './components/VideoBox';
 import Chatbox  from './components/Chatbox';
 import Toolbar  from './components/Toolbar';
@@ -23,7 +23,12 @@ export default function App() {
     /* handlers */
     const handleRecord = useCallback(() => { setRecording(true);  startRecording(); }, [startRecording]);
     const handleStop   = useCallback(() => { setRecording(false); }, []);
-    const handleAudio  = useCallback((b64) => { sendAudio(b64); stopRecording(); }, [sendAudio, stopRecording]);
+    // b64 is null when the audio could not be read; still signal stop so the
+    // backend closes out the recording instead of waiting forever.
+    const handleAudio  = useCallback((b64) => {
+        if (b64) sendAudio(b64);
+        stopRecording();
+    }, [sendAudio, stopRecording]);
 
     return (
         <div className="app">

@@ -84,7 +84,7 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The backend will be running at `http://localhost:8000`. You can verify at `http://localhost:8000/health`.
+The backend will be running at `http://localhost:8000`. You can verify at `http://localhost:8000/api/health`.
 
 ### 3. Frontend setup
 ```bash
@@ -98,6 +98,11 @@ npm run dev
 ```
 
 The frontend will be running at `http://localhost:5173`. Open it in your browser, grant camera/mic access, and start debating.
+
+The Vite dev server proxies `/ws` and `/api` to the backend on port 8000, so the client
+sees a single origin in development just as it does in production. No extra configuration
+is needed; set `VITE_WS_URL` only if your backend runs somewhere other than
+`localhost:8000`.
 
 ---
 
@@ -215,24 +220,67 @@ Polly-AI/
 │   └── package.json
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                     # FastAPI app + WebSocket endpoint
-│   │   ├── config.py                   # Environment configuration
+│   │   ├── __init__.py                 # Configures logging before submodules load
+│   │   ├── main.py                     # FastAPI app, routing, static file serving
+│   │   ├── config.py                   # Environment configuration (single source)
+│   │   ├── logging_config.py           # Structured stdout logging setup
 │   │   ├── database.py                 # SQLAlchemy models + session
 │   │   ├── api/
-│   │   │   └── websocket.py            # ConnectionManager (all WS logic)
+│   │   │   └── websocket.py            # ConnectionManager (transport only)
 │   │   ├── services/
 │   │   │   ├── emotion_service.py      # DeepFace emotion detection
 │   │   │   ├── chat_service.py         # Gemini AI integration
-│   │   │   ├── speech_service.py       # Speech transcription
+│   │   │   ├── speech_service.py       # Speech transcription (mock)
 │   │   │   ├── voice_analysis_service.py  # librosa audio analysis
+│   │   │   ├── scoring_service.py      # Performance scoring rules
 │   │   │   └── topic_service.py        # Debate topic management
 │   │   ├── models/
 │   │   │   └── session.py              # Database operations
+│   │   ├── utils/
+│   │   │   ├── imaging.py              # base64 -> BGR frame decoding
+│   │   │   ├── paths.py                # Static-path containment check
+│   │   │   └── serialization.py        # numpy -> JSON sanitization
 │   │   └── data/
-│   │       └── topics.json             # 15 debate topics
-│   └── requirements.txt
+│   │       └── topics.json             # Debate topics (single source of truth)
+│   ├── tests/
+│   │   ├── unit/                       # Automated pytest suite
+│   │   └── demos/                      # Interactive camera scripts (manual only)
+│   ├── requirements.txt
+│   └── requirements-dev.txt
 └── README.md
 ```
+
+---
+
+## Testing
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+
+The suite covers scoring rules, speech-pattern analysis, topic loading, session
+statistics, JSON sanitization, and static-path traversal containment.
+
+`requirements-dev.txt` deliberately excludes the heavy runtime dependencies
+(TensorFlow, DeepFace, librosa, OpenCV) — the unit suite must not need them, which
+keeps CI to a few seconds. Install `requirements.txt` as well if you want to run the
+camera demos.
+
+Scripts in `backend/tests/demos/` open a camera window and wait for a keypress — they
+are manual diagnostics, not tests, and `pytest.ini` limits collection to `tests/unit`.
+
+Frontend checks:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Both backend and frontend checks run in CI on every push and pull request
+(`.github/workflows/test.yml`).
 
 ---
 

@@ -263,6 +263,16 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
     padding: 2px 8px;
     border-radius: 999px;
 }
+.report-overall { display: flex; align-items: baseline; gap: 6px; }
+.report-overall .score { font-size: 28px; font-weight: 700; color: #fff; line-height: 1; }
+.report-overall .out-of { font-size: 11px; color: #9ca3af; }
+.report-notes {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
 .report-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));

@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-
-const Ctx = createContext(null);
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Ctx } from './wsContext';
 
 function getWsBase() {
     if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
@@ -8,7 +7,7 @@ function getWsBase() {
     return `${proto}//${window.location.host}`;
 }
 const WS_BASE = getWsBase();
-const SID = 'user-' + Math.random().toString(36).slice(2, 9);
+const SID = 'user-' + (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 9));
 const WS_URL = `${WS_BASE}/ws/${SID}`;
 const FRAME_MS = 1000;
 
@@ -24,7 +23,13 @@ export function WebSocketProvider({ children }) {
 
     /* ── connect ─────────────────────────────────── */
     const connect = useCallback(() => {
-        if (ws.current?.readyState === WebSocket.OPEN) return;
+        // CONNECTING counts as live too. Checking only for OPEN let StrictMode's
+        // double-invoked effect open a second socket while the first was still
+        // connecting, leaving an orphaned socket whose handlers duplicated every
+        // message (the welcome text appeared twice) and whose eventual close tore
+        // down the live session server-side.
+        const state = ws.current?.readyState;
+        if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
         try { ws.current = new WebSocket(WS_URL); }
         catch { setError('Backend not reachable.'); return; }
 
@@ -58,7 +63,18 @@ export function WebSocketProvider({ children }) {
 
     useEffect(() => {
         connect();
-        return () => { clearTimeout(reco.current); ws.current?.readyState === WebSocket.OPEN && ws.current.close(1000); };
+        return () => {
+            clearTimeout(reco.current);
+            const sock = ws.current;
+            if (!sock) return;
+            // Close whether OPEN or still CONNECTING; the old check skipped
+            // CONNECTING sockets and leaked them.
+            if (sock.readyState === WebSocket.OPEN) {
+                sock.close(1000);
+            } else if (sock.readyState === WebSocket.CONNECTING) {
+                sock.onopen = () => sock.close(1000);
+            }
+        };
     }, [connect]);
 
     /* ── senders ─────────────────────────────────── */
@@ -69,7 +85,16 @@ export function WebSocketProvider({ children }) {
     }, []);
 
     const sendFrame      = useCallback((b64) => send({ type: 'frame', data: b64, timestamp: Date.now() / 1000 }), [send]);
-    const sendChat       = useCallback((txt) => { setChat(p => [...p, { role: 'user', content: txt }]); send({ type: 'chat', message: txt }); }, [send]);
+    // Only echo the user's message once the socket has actually accepted it,
+    // otherwise a closed connection silently shows the message as sent.
+    const sendChat       = useCallback((txt) => {
+        if (send({ type: 'chat', message: txt })) {
+            setChat(p => [...p, { role: 'user', content: txt }]);
+            return true;
+        }
+        setError('Not connected — your message was not sent.');
+        return false;
+    }, [send]);
     const startRecording = useCallback(() => send({ type: 'start_recording' }), [send]);
     const stopRecording  = useCallback(() => send({ type: 'stop_recording' }),  [send]);
     const sendAudio      = useCallback((b64) => send({ type: 'audio_complete', data: b64 }), [send]);
@@ -82,5 +107,3 @@ export function WebSocketProvider({ children }) {
         </Ctx.Provider>
     );
 }
-
-export const useWS = () => useContext(Ctx);
