@@ -43,13 +43,19 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "==> Assembling Space tree"
-cp -R "$REPO_ROOT/backend" "$REPO_ROOT/frontend" "$WORK/"
-cp "$REPO_ROOT/Dockerfile" "$REPO_ROOT/.dockerignore" "$WORK/"
+# Export tracked files only. Copying the working tree and deleting artefacts
+# afterwards inverts the safety: it ships anything the cleanup list forgot, and
+# copies a ~200 MB node_modules just to remove it. git archive cannot emit an
+# untracked file, so venvs, node_modules, *.db and .env are excluded by
+# construction rather than by a list that has to stay complete.
+git -C "$REPO_ROOT" archive --format=tar HEAD | tar -x -C "$WORK"
+
+# The Space needs its own README front-matter at the repository root.
 cp "$REPO_ROOT/deploy/huggingface/README.md" "$WORK/README.md"
 
-# Never ship local artefacts: virtualenvs, node_modules, databases, .env files.
-rm -rf "$WORK/backend/venv" "$WORK/frontend/node_modules" "$WORK/frontend/dist"
-find "$WORK" \( -name '*.db' -o -name '.env' -o -name '__pycache__' \) -exec rm -rf {} + 2>/dev/null || true
+if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
+  echo "    note: uncommitted changes are NOT deployed — commit them first." >&2
+fi
 
 echo "==> Pushing to https://huggingface.co/spaces/$USERNAME/$SPACE"
 cd "$WORK"
