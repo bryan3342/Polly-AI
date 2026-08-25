@@ -1,0 +1,23 @@
+# Render blueprint — deploys the whole app (API, WebSocket and the built SPA)
+# as one Docker service.
+#
+# The free instance type provides 512 MB, which fits: the app measures 231 MB
+# after startup and 292 MB after inference. It sleeps after ~15 minutes of
+# inactivity and cold-starts on the next request, so the first visit after a
+# quiet period is slow.
+services:
+  - type: web
+    name: polly-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      # Render injects PORT; the container reads it and defaults to 8080.
+      - key: PORT
+        value: 10000
+      # Optional. Without it the camera, face detection, emotion tracking and
+      # voice measurement all work; transcript and coaching report themselves
+      # unavailable. Set it in the Render dashboard, not here.
+      - key: GEMINI_API_KEY
+        sync: false

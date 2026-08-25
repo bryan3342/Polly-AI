@@ -122,11 +122,15 @@ is needed; set `VITE_WS_URL` only if your backend runs somewhere other than
 The whole app — API, WebSocket and the built frontend — runs as **one process**,
 so a single container host serves everything from one URL.
 
-| Host | Notes |
-|---|---|
-| **Hugging Face Spaces** | Free, 2 vCPU / 16 GB, no payment card. `./deploy/huggingface/deploy.sh` — see [docs/SETUP.md](docs/SETUP.md) |
-| **Fly.io** | `fly.toml` is committed; guide below |
-| Cloudflare Pages | Frontend only — Workers cannot run TensorFlow, librosa or ffmpeg |
+Measured footprint: **231 MB after startup, 292 MB after inference** — small
+enough for a 512 MB free instance.
+
+| Host | Free? | Notes |
+|---|---|---|
+| **Render** | Yes, 512 MB | `render.yaml` committed. Sleeps when idle |
+| **Fly.io** | No | `fly.toml` committed; guide below |
+| Hugging Face Spaces | No | Docker Spaces require PRO |
+| Cloudflare Pages | Yes | Frontend only — Workers cannot run TensorFlow, librosa or ffmpeg |
 
 The container reads `PORT` (default 8080), so it runs unchanged on Fly (8080),
 Spaces (7860) and Cloud Run (injected).
