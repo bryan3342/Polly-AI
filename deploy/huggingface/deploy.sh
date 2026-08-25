@@ -35,8 +35,14 @@ CREATE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
 case "$CREATE" in
   200|201) echo "    created ${USERNAME}/${SPACE}" ;;
   409)     echo "    already exists — updating it" ;;
-  *)       echo "    could not create the Space (HTTP ${CREATE})." >&2
-           echo "    Check the token has write scope, then retry." >&2
+  402)     echo "    Hugging Face requires a PRO subscription to run a Docker" >&2
+           echo "    Space on the free cpu-basic tier. Only static Spaces are" >&2
+           echo "    free. See docs/SETUP.md for hosts that can run this image." >&2
+           exit 1 ;;
+  403)     echo "    Token lacks write access. Create one with the 'write' role" >&2
+           echo "    at https://huggingface.co/settings/tokens" >&2
+           exit 1 ;;
+  *)       echo "    Could not create the Space (HTTP ${CREATE})." >&2
            exit 1 ;;
 esac
 WORK="$(mktemp -d)"

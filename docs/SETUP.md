@@ -77,12 +77,43 @@ from collection by `pytest.ini` and must never run in CI.
 The app is one process in production: FastAPI serves the built SPA *and* handles
 WebSockets, so a single host runs everything (see `Dockerfile` and `fly.toml`).
 
-### Hugging Face Spaces (free, hosts the whole app)
+### Choosing a host
 
-The Space runs the same `Dockerfile` as every other target, so the backend
-*and* the frontend are served from one URL — no split, no `VITE_WS_URL`. The
-free CPU tier provides 2 vCPU and 16 GB of RAM, which is what the TensorFlow
-dependency needs, and it requires no payment card.
+The app is one container: API, WebSocket and the built SPA from a single URL.
+Measured footprint is **231 MB after startup and warm-up, 292 MB after
+inference**, so it fits a 512 MB instance — which is what makes a free tier
+possible at all.
+
+| Host | Free? | Notes |
+|---|---|---|
+| **Render** | Yes, 512 MB | Fits. Sleeps after ~15 min idle; first request after that is a cold start. `render.yaml` is committed. |
+| **Fly.io** | No | Needs a card. 1 GB machine; `fly.toml` is committed. |
+| **Hugging Face Spaces** | **No — see below** | Docker Spaces require PRO. |
+| Cloudflare Pages | Yes | **Frontend only.** Workers cannot run TensorFlow, librosa or ffmpeg. |
+
+Whatever the host, the container reads `PORT` and needs no other configuration.
+
+#### Render
+
+```bash
+# Blueprint deploy: New → Blueprint → point at this repository.
+# render.yaml provisions a free Docker web service with a health check.
+```
+
+Add `GEMINI_API_KEY` in the dashboard for transcription and coaching. Without
+it the camera, face detection, emotion tracking and voice measurement still
+work.
+
+#### Hugging Face Spaces — requires PRO
+
+`deploy/huggingface/deploy.sh` works, but Hugging Face no longer runs Docker
+Spaces on the free tier:
+
+> Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on
+> free cpu-basic requires a PRO subscription.
+
+The script exits with that explanation on HTTP 402. It remains useful for
+anyone who has PRO — the free CPU tier there is 2 vCPU and 16 GB.
 
 ```bash
 # Only prerequisite: a write token from https://huggingface.co/settings/tokens

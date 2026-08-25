@@ -28,6 +28,8 @@ primary_region = 'iad'
     grace_period = "120s"
 
 [[vm]]
-  memory = '2gb'
+  # Measured: 231 MB after startup and model warm-up, 292 MB after inference.
+  # 2gb was a guess with 7x headroom, and memory is the main cost driver here.
+  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
