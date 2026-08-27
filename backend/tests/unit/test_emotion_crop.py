@@ -8,6 +8,8 @@ computed over the whole room: wall colour, clothing, anything in shot (#26).
 
 import importlib
 import sys
+import threading
+import time
 import types
 
 import numpy as np
@@ -124,17 +126,33 @@ class TestLargestFaceSelection:
         assert chosen == (200, 100, 120, 120)
 
 
+def _bare_service():
+    """An EmotionService without the OpenCV/TensorFlow constructor.
+
+    `__init__` loads a Haar cascade from disk, which these tests neither need
+    nor have. Only the warm-up concurrency state is set up by hand.
+    """
+    service = EmotionService.__new__(EmotionService)
+    service.face_cascade = None
+    service._model_lock = threading.Lock()
+    service._model_ready = False
+    return service
+
+
 class TestWarmUp:
-    """The model is built at startup, not on a user's first frame.
+    """The model is built before a user's first frame, not during it.
 
     Lazily constructing it meant the first frame of the first session paid for
     the graph trace, the Haar cascade's first run and the JPEG decode path —
     measured at 130ms, which reads to that user as the app stalling.
+
+    Warm-up runs on a background thread now (so the server can bind its port
+    without waiting for TensorFlow), which means it can overlap with the first
+    frames arriving on worker threads. These cover that overlap.
     """
 
     def test_warm_up_reports_success(self, monkeypatch):
-        service = EmotionService.__new__(EmotionService)
-        service.face_cascade = None
+        service = _bare_service()
         monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
 
         assert service.warm_up() is True
@@ -144,10 +162,78 @@ class TestWarmUp:
         failure here is logged and left to the per-frame error handling."""
         import app.services.emotion_service as module
 
-        service = EmotionService.__new__(EmotionService)
+        service = _bare_service()
         monkeypatch.setattr(
             module.DeepFace, "build_model",
             lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network")),
         )
 
         assert service.warm_up() is False
+
+    def test_a_failed_warm_up_is_retried(self, monkeypatch):
+        """A failure must not latch. The next frame gets another attempt."""
+        import app.services.emotion_service as module
+
+        service = _bare_service()
+        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+
+        attempts = []
+
+        def flaky(*a, **k):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise RuntimeError("no network")
+
+        monkeypatch.setattr(module.DeepFace, "build_model", flaky)
+
+        assert service.warm_up() is False
+        assert service.warm_up() is True
+        assert len(attempts) == 2
+
+    def test_the_model_is_built_once_however_many_callers(self, monkeypatch):
+        """Repeat calls are free: every frame calls warm_up before analysing."""
+        import app.services.emotion_service as module
+
+        service = _bare_service()
+        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+        builds = []
+        monkeypatch.setattr(module.DeepFace, "build_model",
+                            lambda *a, **k: builds.append(1))
+
+        for _ in range(5):
+            assert service.warm_up() is True
+
+        assert len(builds) == 1
+
+    def test_concurrent_warm_ups_build_the_model_only_once(self, monkeypatch):
+        """The race this guards: the background warm-up thread and a worker
+        thread handling an early frame both reaching an unbuilt model.
+        DeepFace's model cache is not thread-safe, so one must wait."""
+        import app.services.emotion_service as module
+
+        service = _bare_service()
+        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+
+        builds = []
+        start = threading.Barrier(8)
+
+        def slow_build(*a, **k):
+            builds.append(1)
+            time.sleep(0.05)          # widen the window a racy version would lose
+
+        monkeypatch.setattr(module.DeepFace, "build_model", slow_build)
+
+        results = []
+
+        def worker():
+            start.wait()              # maximise the overlap
+            results.append(service.warm_up())
+
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results == [True] * 8
+        assert len(builds) == 1

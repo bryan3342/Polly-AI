@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -8,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.container import build_connection_manager
+from app.api.websocket import WS_CLOSE_IDLE, receive_or_idle
+from app.container import build_application
 from app.config import config
 from app.database import init_db
 from app.utils.paths import resolve_within
@@ -16,12 +19,42 @@ from app.utils.paths import resolve_within
 # Logging is configured in app/__init__.py, before these imports execute.
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Polly AI Debate Coach")
-
 init_db()
 
 # The composition root builds the service graph; this module only routes.
-manager = build_connection_manager()
+_application = build_application()
+manager = _application.manager
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Warm the emotion model without holding up the port bind.
+
+    Warm-up used to run during import, so uvicorn could not bind its socket
+    until TensorFlow had finished loading and building the model. On a small
+    shared CPU that is tens of seconds during which the host sees a container
+    that is not listening -- and hosts bound that: Cloud Run allows at most 4
+    minutes for container startup before it calls the revision failed.
+
+    It cannot go directly in this lifespan handler either: uvicorn runs lifespan
+    startup to completion *before* it binds. So it is dispatched to a worker
+    thread (it is synchronous, CPU-bound TensorFlow work) and simply left to
+    finish on its own. `/api/health` answers immediately; a frame that arrives
+    first waits for the same build via EmotionService.warm_up.
+    """
+    task = asyncio.create_task(asyncio.to_thread(_application.warm_up))
+    try:
+        yield
+    finally:
+        # On shutdown, stop waiting on a warm-up that may still be running --
+        # but surface anything it raised rather than dropping it silently.
+        if not task.done():
+            task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="Polly AI Debate Coach", lifespan=lifespan)
 
 # CORS middleware — explicit origins only; "*" with allow_credentials=True is
 # invalid per the CORS spec and over-permissive (issue #22).
@@ -90,7 +123,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            data = await websocket.receive_text()
+            data = await receive_or_idle(websocket, session_id)
+            if data is None:
+                await websocket.close(code=WS_CLOSE_IDLE, reason="idle")
+                break
 
             try:
                 message = json.loads(data)
@@ -120,9 +156,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
     except WebSocketDisconnect:
-        manager.disconnect(session_id, websocket)
+        pass
     except Exception:
         logger.exception("WebSocket error for session %s", session_id)
+    finally:
+        # One place that tears the session down, whatever ended it: a client
+        # disconnect, an idle close, or an error. It used to be duplicated per
+        # branch, and the idle path would have been a fourth copy to forget.
         manager.disconnect(session_id, websocket)
 
 

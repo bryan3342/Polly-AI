@@ -10,14 +10,30 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
-# System deps for OpenCV, librosa
+# System deps.
+#
+# libgl1, libsm6, libxext6 and libxrender1 used to be listed here for OpenCV.
+# They are gone for two reasons: opencv-python-headless does not link against
+# them, and ffmpeg already pulls that whole Mesa/LLVM tree in transitively, so
+# naming them bought nothing. Measured: identical install size either way.
+#
+# ffmpeg is the largest single item in this image at ~409 MB installed. It stays
+# because it is the only thing that decodes the browser's WebM/Opus and MP4/AAC
+# recordings (see backend/app/utils/audio.py).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 ffmpeg \
+    libglib2.0-0 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Python deps
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Python deps, in two passes.
+#
+# Pass 1 installs everything normally, including the tensorflow-cpu and
+# opencv-python-headless variants. Pass 2 installs deepface and the detector
+# packages with --no-deps, which is what stops pip from re-installing the full
+# `tensorflow` and `opencv-python` wheels on top of the variants. See
+# requirements-nodeps.txt for the full reasoning.
+COPY backend/requirements.txt backend/requirements-nodeps.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir --no-deps -r requirements-nodeps.txt
 
 # Keep the model cache at a fixed, world-readable path. DeepFace defaults to
 # $HOME/.deepface, and build-time and run-time users differ on some hosts
@@ -31,7 +47,14 @@ ENV DEEPFACE_HOME=/app
 # In a fresh container that made the first user wait for a download, and made
 # emotion detection depend on a third-party host being reachable at request
 # time — a runtime failure mode for something that is really a build input.
-RUN python -c "from deepface import DeepFace; DeepFace.build_model('Emotion', task='facial_attribute')" \
+# The build also has to prove the trimmed install actually works. Because
+# deepface is installed with --no-deps, a missing transitive import surfaces
+# only when the code path runs -- and CI never runs it, since the unit suite
+# deliberately excludes the ML stack. So the real entry point is exercised here:
+# if deepface gains an eager import that requirements.txt does not cover, this
+# fails the build instead of every user's first frame.
+COPY backend/scripts/verify_emotion_stack.py /tmp/
+RUN python /tmp/verify_emotion_stack.py \
     && chmod -R a+rX /app/.deepface
 
 # Backend code
