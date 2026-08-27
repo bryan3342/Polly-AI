@@ -1,13 +1,23 @@
 # See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
-
+#
+# Disabled by default. Cloud Run is the deployment target (see
+# deploy/cloudrun/README.md), no FLY_API_TOKEN is configured, and this workflow
+# consequently failed on *every* push to main -- which trains everyone to ignore
+# a red main rather than to read it.
+#
+# It is gated rather than deleted so that fly.toml stays a working option. Set
+# the repository variable FLY_ENABLED to "true", and add the FLY_API_TOKEN
+# secret, to turn it back on.
 name: Fly Deploy
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 jobs:
   deploy:
     name: Deploy app
+    if: vars.FLY_ENABLED == 'true'
     runs-on: ubuntu-latest
     concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:
