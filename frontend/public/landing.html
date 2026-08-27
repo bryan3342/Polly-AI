@@ -110,82 +110,6 @@
     }
     .caption { color: var(--dim); font-size: 13px; }
 
-    /* ── how it works ───────────────────────────────────────── */
-    h2 {
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: .1em;
-        color: var(--dim);
-        margin: 0 0 20px;
-        font-weight: 600;
-    }
-
-    /* Wraps to one column on a narrow screen without a media query. */
-    .steps {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        margin-bottom: 56px;
-        padding: 0;
-        list-style: none;
-        counter-reset: step;
-    }
-    .steps li {
-        flex: 1 1 240px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 20px;
-    }
-    .steps li::before {
-        counter-increment: step;
-        content: counter(step);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 26px;
-        height: 26px;
-        margin-bottom: 12px;
-        border-radius: 50%;
-        background: rgba(224, 122, 62, .14);
-        color: var(--accent);
-        font-size: 13px;
-        font-weight: 700;
-    }
-    .steps b { display: block; margin-bottom: 4px; font-weight: 600; }
-    .steps span { color: var(--muted); font-size: 14px; }
-
-    /* ── what it measures ───────────────────────────────────── */
-    .measures {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 56px;
-        padding: 0;
-        list-style: none;
-    }
-    .measures li {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 7px 15px;
-        font-size: 14px;
-        color: var(--muted);
-    }
-    .measures li b { color: var(--text); font-weight: 600; }
-
-    footer {
-        border-top: 1px solid var(--line);
-        padding-top: 24px;
-        color: var(--dim);
-        font-size: 14px;
-    }
-    footer a { color: var(--muted); }
-    footer code {
-        background: #151d35;
-        padding: 2px 7px;
-        border-radius: 5px;
-        font-size: 13px;
-    }
 </style>
 </head>
 <body>
@@ -215,36 +139,6 @@
         </div>
         <div class="caption">A recorded walkthrough of a full session.</div>
     </section>
-
-    <h2>How it works</h2>
-    <ol class="steps">
-        <li>
-            <b>Get a topic</b>
-            <span>Polly assigns a debate topic. Ask for another if you want one.</span>
-        </li>
-        <li>
-            <b>Argue it</b>
-            <span>Hit record and make your case. Your face and hands are tracked live as you speak.</span>
-        </li>
-        <li>
-            <b>Get the report</b>
-            <span>Stop, and Polly scores your delivery and says what to fix.</span>
-        </li>
-    </ol>
-
-    <h2>What it measures</h2>
-    <ul class="measures">
-        <li><b>Facial emotion</b> — expression through the argument</li>
-        <li><b>Hands &amp; fingers</b> — 21 points per hand, for gesture</li>
-        <li><b>Vocal tone</b> — pitch, energy, stability</li>
-        <li><b>Speech patterns</b> — pace, filler words, pauses</li>
-    </ul>
-
-    <footer>
-        Runs locally with <code>./run-local.sh</code> —
-        <a href="https://github.com/bryan3342/Polly-AI">source on GitHub</a>.
-        Anything that could not be measured is left out of the score rather than guessed at.
-    </footer>
 
 </div>
 
