@@ -141,6 +141,18 @@ class ConnectionManager:
             "session_id": session_id,
         })
 
+        # Capture settings travel with the session rather than being compiled
+        # into the client. The right frame rate is a property of the machine
+        # running inference -- a laptop and a fractional-CPU instance differ by
+        # more than an order of magnitude -- and only this side knows which one
+        # it is. It also means moving between them needs no frontend rebuild.
+        await self.send_message(session_id, {
+            "type": "capture_settings",
+            "frame_interval_ms": config.FRAME_INTERVAL_MS,
+            "idle_frame_interval_ms": config.IDLE_FRAME_INTERVAL_MS,
+            "jpeg_quality": config.FRAME_JPEG_QUALITY,
+        })
+
         await self.send_message(session_id, {
             "type": "topic_assigned",
             "topic": topic,

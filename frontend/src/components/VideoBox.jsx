@@ -3,7 +3,7 @@ import { useWS } from '../context/wsContext';
 import { FaVideoSlash } from 'react-icons/fa';
 
 export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady }) {
-    const { sendFrame, emotion, connected, FRAME_MS, IDLE_FRAME_MS } = useWS();
+    const { sendFrame, emotion, connected, capture } = useWS();
     const videoRef   = useRef(null);
     const canvasRef  = useRef(null);
     const streamRef  = useRef(null);
@@ -39,8 +39,9 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
     /* ── send frames ─────────────────────────────── */
     // Full rate while recording, slower while idle: every frame costs a
     // DeepFace inference server-side, and only the recorded ones end up in the
-    // report.
-    const frameInterval = isRecording ? FRAME_MS : IDLE_FRAME_MS;
+    // report. Both rates come from the server, which is the only side that
+    // knows how fast it can actually analyse them.
+    const frameInterval = isRecording ? capture.frameMs : capture.idleFrameMs;
     useEffect(() => {
         const id = setInterval(() => {
             // Send nothing at all while the tab is in the background. This is
@@ -54,10 +55,10 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             const ctx = c.getContext('2d');
             c.width = v.videoWidth; c.height = v.videoHeight;
             ctx.drawImage(v, 0, 0);
-            sendFrame(c.toDataURL('image/jpeg', 0.6));
+            sendFrame(c.toDataURL('image/jpeg', capture.jpegQuality));
         }, frameInterval);
         return () => clearInterval(id);
-    }, [frameInterval, sendFrame, cameraOn, connected]);
+    }, [frameInterval, capture.jpegQuality, sendFrame, cameraOn, connected]);
 
     /* ── audio recording ─────────────────────────── */
     useEffect(() => {
