@@ -135,7 +135,8 @@ Pages, so deploying that too would put a permanently broken app behind the link.
 The script prints the live URL when it finishes. Use that one: `pages.dev`
 subdomains are unique across every Cloudflare account, so if the project name is
 already taken a suffix is added, and the unsuffixed address belongs to somebody
-else entirely.
+else entirely. `polly-ai` was taken, which is why the project is named
+`pollyai`; set `CF_PROJECT` to use a different one.
 
 ### Deploying the app somewhere, if you ever want to
 
