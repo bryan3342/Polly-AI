@@ -7,6 +7,33 @@ load_dotenv()
 
 class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    # ── Gemini models ───────────────────────────────────────────────
+    #
+    # Named here rather than in the services because they expire. Google retires
+    # model versions, and the API answers a retired name with a 404 that this
+    # app used to swallow into "I'm having trouble responding right now" -- a
+    # message indistinguishable from a network blip, for a fault that needed a
+    # one-word change. `scripts/check_gemini_models.py` reports what a key can
+    # actually reach, and the server logs a loud error at startup if a model it
+    # is configured to use has gone.
+    #
+    # gemini-2.0-flash and gemini-2.0-flash-lite were both retired; these are
+    # their replacements, measured rather than assumed on a real recording:
+    #
+    #   transcription   flash-lite   999 ms, kept every filler word
+    #                   flash       2619 ms, rewrote "Uh" as "Ah"
+    #                   transcribe  1829 ms, returned nothing at all
+    #
+    # Filler preservation is not cosmetic here: speech-pattern analysis counts
+    # those words, so a model that tidies them away silently flatters the
+    # speaker's score.
+    TRANSCRIPTION_MODEL = os.getenv("TRANSCRIPTION_MODEL", "gemini-3.5-flash-lite")
+
+    # Coaching replies. flash-lite answers in ~800 ms against ~3.6 s for flash,
+    # and this one is in a live conversation. Set CHAT_MODEL=gemini-3.5-flash
+    # for somewhat richer feedback at that cost.
+    CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-3.5-flash-lite")
     # Single source of truth for the DB URL; database.py reads it from here.
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./debate_sessions.db")
     SECRET_KEY = os.getenv("SECRET_KEY")
