@@ -7,6 +7,33 @@ load_dotenv()
 
 class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    # ── Gemini models ───────────────────────────────────────────────
+    #
+    # Named here rather than in the services because they expire. Google retires
+    # model versions, and the API answers a retired name with a 404 that this
+    # app used to swallow into "I'm having trouble responding right now" -- a
+    # message indistinguishable from a network blip, for a fault that needed a
+    # one-word change. `scripts/check_gemini_models.py` reports what a key can
+    # actually reach, and the server logs a loud error at startup if a model it
+    # is configured to use has gone.
+    #
+    # gemini-2.0-flash and gemini-2.0-flash-lite were both retired; these are
+    # their replacements, measured rather than assumed on a real recording:
+    #
+    #   transcription   flash-lite   999 ms, kept every filler word
+    #                   flash       2619 ms, rewrote "Uh" as "Ah"
+    #                   transcribe  1829 ms, returned nothing at all
+    #
+    # Filler preservation is not cosmetic here: speech-pattern analysis counts
+    # those words, so a model that tidies them away silently flatters the
+    # speaker's score.
+    TRANSCRIPTION_MODEL = os.getenv("TRANSCRIPTION_MODEL", "gemini-3.5-flash-lite")
+
+    # Coaching replies. flash-lite answers in ~800 ms against ~3.6 s for flash,
+    # and this one is in a live conversation. Set CHAT_MODEL=gemini-3.5-flash
+    # for somewhat richer feedback at that cost.
+    CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-3.5-flash-lite")
     # Single source of truth for the DB URL; database.py reads it from here.
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./debate_sessions.db")
     SECRET_KEY = os.getenv("SECRET_KEY")
@@ -42,17 +69,33 @@ class Config:
     #
     # Hosted deployments override both; see render.yaml, where a tenth of a core
     # measured ~600 ms per frame and 1 fps is the ceiling.
-    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 100))
+    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 66))
 
     # The slower rate used when not recording, feeding only the live readout
     # beside the video. Still frequent enough to look responsive.
     IDLE_FRAME_INTERVAL_MS = int(os.getenv("IDLE_FRAME_INTERVAL_MS", 500))
 
     # JPEG quality for captured frames, 0-1. The classifier sees these pixels,
-    # so this is an input-fidelity setting, not just bandwidth. 0.6 was chosen
-    # when every byte crossed the public internet; on a loopback connection
-    # there is no reason not to hand the model a better image.
+    # so this is an input-fidelity setting, not just bandwidth.
     FRAME_JPEG_QUALITY = float(os.getenv("FRAME_JPEG_QUALITY", 0.85))
+
+    # Width the browser downscales each frame to before sending it.
+    #
+    # The single biggest lever on how responsive tracking feels, because the
+    # cost lands in three places at once: the browser encodes the JPEG on its
+    # main thread, the frame crosses the socket, and the server decodes and
+    # searches it. All three scale with pixel count. Measured end to end:
+    #
+    #   1280x720   53.8 ms server   907 KB   19 fps ceiling
+    #    640x360   20.3 ms server   228 KB   49 fps ceiling
+    #
+    # Nothing downstream wants those pixels. The emotion model resamples its
+    # face crop to 48x48 regardless, and a face fills enough of a 640px frame
+    # for the cascade to find it comfortably. The *displayed* video is
+    # untouched -- this is only the copy sent for analysis.
+    #
+    # 0 sends the frame at capture resolution.
+    CAPTURE_WIDTH = int(os.getenv("CAPTURE_WIDTH", 640))
 
     # Bounds on per-session in-memory state. Without these a single long-lived
     # connection can grow the process heap without limit.

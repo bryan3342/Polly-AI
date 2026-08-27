@@ -533,3 +533,62 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
     border-radius: 4px;
 }
 .report-feedback .md-p { color: #e2e8f0; }
+
+/* ── tracking indicators ─────────────────────────────────────────────
+   The overlay canvas sits exactly over the video and never intercepts a
+   click; it is a readout, not a control. */
+.tracking-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    /* The video is mirrored so the speaker sees themselves as in a mirror, but
+       the frame sent for analysis is drawn from the raw, unmirrored video — so
+       coordinates come back in unmirrored space. Carrying the same flip here
+       keeps the two in register; without it every indicator lands on the
+       opposite side of the body from the part it is tracking. */
+    transform: scaleX(-1);
+}
+
+/* Which body parts are being measured right now. Both rows are always
+   present, lit or unlit, so "not detected" reads as a state rather than as
+   a missing feature. */
+.track-status {
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    gap: 14px;
+    padding: 6px 10px;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.track-status span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .15s ease, opacity .15s ease;
+}
+.track-status i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 0 currentColor;
+}
+.track-status .on.face   { color: #10b981; }
+.track-status .on.hands  { color: #f59e0b; }
+.track-status .on i      { animation: track-pulse 1.6s ease-out infinite; }
+.track-status .off       { color: #6b7280; opacity: .55; }
+
+@keyframes track-pulse {
+    0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    70%  { box-shadow: 0 0 0 6px transparent; opacity: .85; }
+    100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .track-status .on i { animation: none; }
+}

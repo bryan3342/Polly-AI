@@ -16,7 +16,9 @@ Record a debate response, and Polly AI analyzes your **facial expressions, vocal
 
 ## Features
 
-- **Facial Emotion Detection** — Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region, at 1 frame/second
+- **Facial Emotion Detection** — Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region
+- **Hand & Finger Tracking** — 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
+- **Live tracking indicators** — the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
 - **Speech-to-Text** — Recordings are transcribed by Gemini, verbatim, with filler words preserved
 - **Voice & Tone Analysis** — Pitch, energy, confidence, articulation and vocal stability via librosa
 - **Speech Pattern Analysis** — Words-per-minute and filler-word usage from the transcript; pauses measured from the waveform itself

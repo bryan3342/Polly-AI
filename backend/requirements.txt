@@ -41,6 +41,16 @@ werkzeug>=3.0.0,<4.0.0
 joblib>=1.2,<2.0.0
 lz4>=4.0.0,<6.0.0
 
+# Hand and finger tracking.
+#
+# Pinned below 1.0: mediapipe 1.x aborts the process on macOS with
+# "Check failed: service_ Service is unavailable" from inside its Metal helper
+# -- an abort, not an exception, so it takes the server down rather than
+# degrading. 0.10.x runs the same model on CPU in ~5 ms per 720p frame.
+#
+# OpenCV has no hand or finger model; see app/services/gesture_service.py.
+mediapipe>=0.10.30,<1.0.0
+
 # Audio Analysis
 librosa>=0.10.1,<1.0.0
 soundfile>=0.12.1,<1.0.0
