@@ -149,3 +149,93 @@ def test_concurrent_inferences_are_bounded():
     # Exactly the configured limit: >2 means the bound leaks, 1 means the calls
     # are not actually running off the loop in parallel.
     assert peak == 2, f"peak concurrent inferences was {peak}; expected 2"
+
+
+
+def _saturating_manager(blocking_seconds=BLOCKING_SECONDS, limit=1):
+    """A manager with a single inference slot, as a fractional-CPU host wants."""
+    return ConnectionManager(
+        emotion_analyzer=SlowEmotionAnalyzer(blocking_seconds),
+        coach=_Unused(),
+        topics=_Unused(),
+        analyzer=_Unused(),
+        repository=_Unused(),
+        max_concurrent_inferences=limit,
+    )
+
+
+def _seed_session(manager, session_id="s1"):
+    """The parts of a live session these tests read.
+
+    Built directly rather than through `connect`, which would assign a topic and
+    send a welcome message through collaborators these tests deliberately do not
+    provide.
+    """
+    manager.session_data[session_id] = {
+        "frame_count": 0,
+        "frames_dropped": 0,
+        "emotions": [],
+    }
+    return manager.session_data[session_id]
+
+
+class TestFrameBackpressure:
+    """Frames are dropped when inference is saturated, never queued.
+
+    Frames arrive on a fixed clock -- once a second while recording -- but
+    inference takes however long the host's CPU takes. On a fractional-CPU host
+    the second is reliably shorter than the inference, so awaiting a slot built
+    an unbounded backlog: latency and memory grew for the whole session, and
+    every frame that eventually ran described a moment long past.
+
+    Emotion tracking samples a continuous signal, so a sparser sample is a real
+    answer where a minutes-stale one is not.
+    """
+
+    def test_frames_arriving_faster_than_inference_are_dropped(self):
+        async def scenario():
+            manager = _saturating_manager()
+            session = _seed_session(manager)
+            await asyncio.gather(*(
+                manager.process_frame("s1", f"frame-{i}", i * 0.01)
+                for i in range(10)
+            ))
+            return session["frame_count"], session["frames_dropped"]
+
+        analysed, dropped = asyncio.run(scenario())
+
+        assert dropped > 0, "a saturated server must shed frames, not queue them"
+        assert analysed + dropped == 10, "every frame is analysed or counted as dropped"
+
+    def test_a_burst_costs_about_one_inference_not_ten(self):
+        """The regression: wall time used to grow with the size of the backlog."""
+        async def scenario():
+            manager = _saturating_manager()
+            _seed_session(manager)
+            started = time.monotonic()
+            await asyncio.gather(*(
+                manager.process_frame("s1", f"frame-{i}", i * 0.01) for i in range(10)
+            ))
+            return time.monotonic() - started
+
+        elapsed = asyncio.run(scenario())
+
+        # Queued, ten frames would take ~10 x BLOCKING_SECONDS.
+        assert elapsed < BLOCKING_SECONDS * 2, (
+            f"10 frames took {elapsed:.2f}s against a {BLOCKING_SECONDS}s "
+            f"inference -- they are being queued, not dropped"
+        )
+
+    def test_dropping_is_momentary_not_latched(self):
+        """Frames must be analysed again as soon as the server has capacity."""
+        async def scenario():
+            manager = _saturating_manager(blocking_seconds=0.01)
+            session = _seed_session(manager)
+            for i in range(3):          # serially: never saturated
+                await manager.process_frame("s1", f"frame-{i}", i)
+            return session
+
+        session = asyncio.run(scenario())
+
+        assert session["frame_count"] == 3
+        assert session["frames_dropped"] == 0
