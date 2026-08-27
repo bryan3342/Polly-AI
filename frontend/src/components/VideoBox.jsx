@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useWS } from '../context/wsContext';
 import { FaVideoSlash } from 'react-icons/fa';
+import TrackingOverlay from './TrackingOverlay';
 
 export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady }) {
     const { sendFrame, emotion, connected, capture } = useWS();
@@ -52,13 +53,21 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             if (document.hidden) return;
             const v = videoRef.current, c = canvasRef.current;
             if (!v || !c || v.readyState < v.HAVE_CURRENT_DATA || !cameraOn || !connected) return;
+            // Downscale before encoding. toDataURL runs synchronously on the
+            // main thread and its cost scales with pixel count, so encoding the
+            // full 720p frame fifteen times a second was the largest single
+            // source of the delay — before a byte had even left the browser.
+            // Analysis gains nothing from those pixels; the display keeps them.
+            const target = capture.captureWidth || v.videoWidth;
+            const scale = v.videoWidth > target ? target / v.videoWidth : 1;
+            c.width = Math.round(v.videoWidth * scale);
+            c.height = Math.round(v.videoHeight * scale);
             const ctx = c.getContext('2d');
-            c.width = v.videoWidth; c.height = v.videoHeight;
-            ctx.drawImage(v, 0, 0);
+            ctx.drawImage(v, 0, 0, c.width, c.height);
             sendFrame(c.toDataURL('image/jpeg', capture.jpegQuality));
         }, frameInterval);
         return () => clearInterval(id);
-    }, [frameInterval, capture.jpegQuality, sendFrame, cameraOn, connected]);
+    }, [frameInterval, capture.jpegQuality, capture.captureWidth, sendFrame, cameraOn, connected]);
 
     /* ── audio recording ─────────────────────────── */
     useEffect(() => {
@@ -89,6 +98,8 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
 
     const dom = emotion?.dominant_emotion;
     const conf = emotion?.confidence;
+    const handCount = emotion?.hand_count ?? 0;
+    const handLabel = handCount === 2 ? 'Hands' : handCount === 1 ? '1 hand' : 'Hands';
 
     return (
         <div className={`video-panel ${!cameraOn ? 'camera-off' : ''}`}>
@@ -110,6 +121,13 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             <video ref={videoRef} autoPlay playsInline muted />
             <canvas ref={canvasRef} hidden />
 
+            {/* What the server is measuring, drawn over the video it measured.
+                Its coordinates come back from the analysis itself, so an
+                indicator appearing is evidence the frame was received and
+                understood — not a local guess about where a face might be. */}
+            <TrackingOverlay tracking={emotion} connections={capture.handConnections}
+                             active={cameraOn && connected} />
+
             {/* REC badge */}
             {isRecording && (
                 <div className="video-overlay rec-badge">
@@ -128,6 +146,19 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
                 <div className="video-overlay emotion-chip">
                     <div className="label">{dom}</div>
                     {conf != null && <div className="conf">{(conf * 100).toFixed(0)}%</div>}
+                </div>
+            )}
+
+            {/* Tracking status. States what is being measured right now, so an
+                absent indicator is distinguishable from a broken one. */}
+            {cameraOn && connected && (
+                <div className="video-overlay track-status">
+                    <span className={emotion?.face_detected ? 'on face' : 'off'}>
+                        <i /> Face
+                    </span>
+                    <span className={emotion?.hands_detected ? 'on hands' : 'off'}>
+                        <i /> {handLabel}
+                    </span>
                 </div>
             )}
         </div>

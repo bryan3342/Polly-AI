@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 FILLER_WORDS = ["um", "uh", "like", "you know", "so", "basically", "actually"]
 MIN_PAUSE_SECONDS = 0.5
 
-TRANSCRIPTION_MODEL = "gemini-2.0-flash"
+# Configurable, and versioned: model names expire.
+# See Config.TRANSCRIPTION_MODEL for the measurements behind this choice.
+TRANSCRIPTION_MODEL = config.TRANSCRIPTION_MODEL
 
 TRANSCRIPTION_PROMPT = (
     "Transcribe this recording of a person practising a debate argument.\n"

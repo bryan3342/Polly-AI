@@ -47,8 +47,8 @@ setup() {
     # tensorflow and opencv-python wheels over the variants above.
     "$VENV/bin/pip" install --quiet --no-deps -r backend/requirements-nodeps.txt
 
-    echo "==> Caching the emotion model weights"
-    (cd backend && DEEPFACE_HOME="$PWD" "../$VENV/bin/python" scripts/verify_emotion_stack.py)
+    echo "==> Caching model weights (emotion, and the hand landmarker)"
+    (cd backend && DEEPFACE_HOME="$PWD" "../$VENV/bin/python" scripts/fetch_models.py)
 
     echo "==> Installing frontend dependencies"
     (cd frontend && npm install --silent)
