@@ -1,32 +1,67 @@
-<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <title>Polly AI</title>
-  <defs>
-    <linearGradient id="pl-head" x1="16" y1="16" x2="46" y2="52" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#9db4f0"/><stop offset="1" stop-color="#4f62b6"/>
-    </linearGradient>
-    <linearGradient id="pl-crest" x1="6" y1="4" x2="34" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#a8bcf5"/><stop offset="1" stop-color="#6a86d8"/>
-    </linearGradient>
-    <linearGradient id="pl-beak" x1="38" y1="22" x2="56" y2="50" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f9c065"/><stop offset="1" stop-color="#dd8619"/>
-    </linearGradient>
-  </defs>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pollyTitle">
+  <title id="pollyTitle">Polly AI</title>
 
-  <!-- crest: three tapered plumes swept up and back -->
-  <path d="M24 27 C14 24 8 17 6 9 C13 12 21 16 28 21 Z" fill="url(#pl-crest)"/>
-  <path d="M28 22 C20.5 17 15.5 11 14.5 4 C20 8.5 27 13 33 18 Z" fill="url(#pl-crest)"/>
-  <path d="M33 19 C30.5 14.5 29 10 29.5 5.5 C33 10 36 13.5 38 17 Z" fill="url(#pl-crest)" opacity=".85"/>
+  <!--
+    Flat vector macaw, facing left, perched on a bare branch.
+    Palette, in the order the eye meets it:
+      #E07A3E  orange    body, wing, tail and crown
+      #C96A33  deep      feather divisions on the wing
+      #EFCB92  wheat     breast patch
+      #FFFFFF  white     face mask
+      #2E3A4E  navy      eye and upper beak
+      #6B7280  grey      lower beak, legs and branch
 
-  <!-- head -->
-  <path d="M31 17 C41 17 47 24 47 33 C47 44 40 51 30 51 C20 51 14 44 14 34 C14 24 21 17 31 17 Z" fill="url(#pl-head)"/>
+    Drawn back to front: branch, legs, tail, body, breast, wing, head,
+    face mask, beak, eye. Each shape sits on top of the one before it, so
+    the outline never needs a stroke to separate them.
+  -->
 
-  <!-- upper mandible: bold crescent hooking down and back -->
-  <path d="M39 24 C48 22 56 28 57 36 C57.5 43 52 48.5 45 48 C49.5 43.5 51 36.5 47.5 31 C45.5 27.5 42.5 25 39 24 Z" fill="url(#pl-beak)"/>
-  <!-- lower mandible tucked under the hook -->
-  <path d="M41 42 C45 45.5 50 46.5 53.5 45 C51.5 49 47 51 43 49.5 C42.5 47 42 44.5 41 42 Z" fill="#c9761a"/>
+  <g fill="none" fill-rule="evenodd">
 
-  <!-- eye patch + eye -->
-  <ellipse cx="33" cy="30" rx="7.2" ry="6.8" fill="#e2e9fc" opacity=".95"/>
-  <circle cx="33.4" cy="30" r="4" fill="#111a33"/>
-  <circle cx="34.9" cy="28.5" r="1.45" fill="#fff"/>
+    <!-- Branch -->
+    <path d="M34 176 C70 162 112 154 168 152"
+          stroke="#6B7280" stroke-width="7" stroke-linecap="round"/>
+    <path d="M104 158 L124 146" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Tail: three feathers, longest in the middle -->
+    <path d="M112 120 C126 142 136 166 134 190 C122 174 110 148 102 128 Z" fill="#E07A3E"/>
+    <path d="M124 116 C142 138 156 164 158 190 C142 174 126 148 116 124 Z" fill="#E07A3E"/>
+    <path d="M134 110 C154 128 170 150 176 174 C158 162 140 140 128 120 Z" fill="#E07A3E"/>
+
+    <!-- Legs, gripping the branch -->
+    <path d="M86 132 L86 158" stroke="#6B7280" stroke-width="9" stroke-linecap="round"/>
+    <path d="M102 132 L102 154" stroke="#6B7280" stroke-width="9" stroke-linecap="round"/>
+    <path d="M78 160 L92 155 M96 156 L110 151"
+          stroke="#6B7280" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Body -->
+    <path d="M92 46 C124 46 144 74 144 106 C144 132 126 150 100 150
+             C72 150 56 128 56 98 C56 68 68 46 92 46 Z" fill="#E07A3E"/>
+
+    <!-- Breast patch, low and to the left -->
+    <path d="M74 96 C86 96 93 108 93 122 C93 138 85 148 73 148
+             C62 148 56 132 56 116 C56 102 63 96 74 96 Z" fill="#EFCB92"/>
+
+    <!-- Wing -->
+    <path d="M108 70 C132 70 146 90 146 114 C146 136 130 150 110 150
+             C92 150 82 132 82 110 C82 86 94 70 108 70 Z" fill="#E07A3E"/>
+    <path d="M110 80 C130 82 140 98 140 116 M104 90 C122 94 130 108 130 124"
+          stroke="#C96A33" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+
+    <!-- Head, with the crown left orange above the mask -->
+    <circle cx="90" cy="56" r="32" fill="#E07A3E"/>
+
+    <!-- Face mask: covers the front of the head, crown stays orange -->
+    <path d="M80 28 C60 30 50 44 50 62 C50 80 62 90 80 90
+             C94 90 102 76 102 60 C102 42 94 28 80 28 Z" fill="#FFFFFF"/>
+
+    <!-- Beak: hooked upper mandible, and the lighter lower one beneath -->
+    <path d="M62 32 C40 32 24 46 24 62 C24 78 40 88 60 86
+             C48 76 44 48 62 32 Z" fill="#2E3A4E"/>
+    <path d="M48 70 C36 74 32 82 36 88 C46 94 60 90 64 80 Z" fill="#6B7280"/>
+
+    <!-- Eye -->
+    <circle cx="83" cy="56" r="14" fill="#2E3A4E"/>
+    <circle cx="88" cy="50" r="4.8" fill="#FFFFFF"/>
+  </g>
 </svg>

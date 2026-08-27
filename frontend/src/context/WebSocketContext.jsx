@@ -12,14 +12,16 @@ const WS_BASE = getWsBase();
 // trusted verbatim: connecting with somebody else's id attached you to their
 // live session (issue #21).
 const WS_URL = `${WS_BASE}/ws`;
-// Frame cadence while a debate is being recorded: this is the footage the
-// emotion timeline and the final report are actually built from.
-const FRAME_MS = 1000;
-// Cadence the rest of the time, when frames only feed the live readout beside
-// the video. Each frame costs a DeepFace inference on the server, so running
-// the idle preview at the recording rate spent five times the CPU on frames
-// nobody scores. The readout still updates, just less often.
-const IDLE_FRAME_MS = 5000;
+// Capture defaults, used only until the server states its own on connect (see
+// the `capture_settings` message). The right frame rate depends on the machine
+// running inference, which the browser cannot know: a laptop measures ~39 ms per
+// frame at full resolution while a fractional-CPU instance measures ~600 ms.
+// Baking a single number in here meant one of those two was always wrong.
+//
+// These are the conservative fallback, not the intended values.
+const DEFAULT_FRAME_MS = 1000;
+const DEFAULT_IDLE_FRAME_MS = 5000;
+const DEFAULT_JPEG_QUALITY = 0.6;
 
 // How often to tell the server we are still here while the tab is visible but
 // no frames are flowing -- the camera is off, or the user is reading their
@@ -50,6 +52,12 @@ export function WebSocketProvider({ children }) {
     const [processing, setProcessing]   = useState(false);
     const [error, setError]             = useState(null);
     const [sessionId, setSessionId]     = useState(null);
+    // Replaced by whatever the server reports it can keep up with.
+    const [capture, setCapture]         = useState({
+        frameMs: DEFAULT_FRAME_MS,
+        idleFrameMs: DEFAULT_IDLE_FRAME_MS,
+        jpegQuality: DEFAULT_JPEG_QUALITY,
+    });
     // Distinguishes "never reached the server" from "was connected and dropped".
     // They need different explanations: the first is usually a backend that is
     // not running or not configured, the second is a blip worth waiting out.
@@ -66,19 +74,36 @@ export function WebSocketProvider({ children }) {
         // down the live session server-side.
         const state = ws.current?.readyState;
         if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
-        try { ws.current = new WebSocket(WS_URL); }
-        catch { setError(UNREACHABLE); return; }
 
-        ws.current.onopen = () => {
+        let sock;
+        try { sock = new WebSocket(WS_URL); }
+        catch { setError(UNREACHABLE); return; }
+        ws.current = sock;
+
+        // Every handler below ignores events from a socket that is no longer
+        // the current one. Without this, a socket being torn down reports its
+        // own close as a lost connection and clears state that now belongs to
+        // its replacement.
+        const isCurrent = () => ws.current === sock;
+
+        sock.onopen = () => {
+            if (!isCurrent()) return;
             everConnected.current = true;
             setConnected(true);
             setError(null);
         };
 
-        ws.current.onmessage = (e) => {
+        sock.onmessage = (e) => {
+            if (!isCurrent()) return;
             let m; try { m = JSON.parse(e.data); } catch { return; }
             switch (m.type) {
                 case 'session_assigned':  setSessionId(m.session_id); break;
+                case 'capture_settings':
+                    setCapture({
+                        frameMs: m.frame_interval_ms ?? DEFAULT_FRAME_MS,
+                        idleFrameMs: m.idle_frame_interval_ms ?? DEFAULT_IDLE_FRAME_MS,
+                        jpegQuality: m.jpeg_quality ?? DEFAULT_JPEG_QUALITY,
+                    }); break;
                 case 'emotion_update':    setEmotion(m.data); break;
                 case 'topic_assigned':    setTopic(m.topic); break;
                 case 'recording_started': break;
@@ -95,7 +120,8 @@ export function WebSocketProvider({ children }) {
             }
         };
 
-        ws.current.onclose = (e) => {
+        sock.onclose = (e) => {
+            if (!isCurrent()) return;
             setConnected(false);
             // Reaped for inactivity. Reconnection is deliberately left until
             // something needs the socket again -- `send` reopens it, and the
@@ -106,9 +132,10 @@ export function WebSocketProvider({ children }) {
             setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
             reco.current = setTimeout(connect, 3000);
         };
-        ws.current.onerror = () => {
+        sock.onerror = () => {
+            if (!isCurrent()) return;
             setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
-            ws.current?.close();
+            sock.close();
         };
     }, []);
 
@@ -135,6 +162,13 @@ export function WebSocketProvider({ children }) {
             document.removeEventListener('visibilitychange', onVisibility);
             clearTimeout(reco.current);
             const sock = ws.current;
+            // Released *before* the close is arranged, so that the immediate
+            // re-mount StrictMode performs in development builds a fresh socket
+            // instead of finding this one still CONNECTING and returning early.
+            // That early return left the app with a socket already scheduled to
+            // close, and a clean close does not trigger the reconnect path -- so
+            // it sat on "Connecting to server…" indefinitely.
+            ws.current = null;
             if (!sock) return;
             // Close whether OPEN or still CONNECTING; the old check skipped
             // CONNECTING sockets and leaked them.
@@ -179,7 +213,7 @@ export function WebSocketProvider({ children }) {
     return (
         <Ctx.Provider value={{ connected, emotion, chat, topic, processing, error, sessionId,
             sendFrame, sendChat, startRecording, stopRecording, sendAudio, newTopic,
-            FRAME_MS, IDLE_FRAME_MS }}>
+            capture }}>
             {children}
         </Ctx.Provider>
     );

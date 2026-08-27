@@ -57,10 +57,94 @@ Browser ←→ WebSocket ←→ FastAPI
 
 ---
 
+## Running it
+
+Polly runs **on your machine**. The browser holds the camera and microphone, and
+frames cross a loopback WebSocket to a local Python process that does the OpenCV
+face detection and DeepFace emotion work right there.
+
+```bash
+./run-local.sh
+```
+
+First run creates the virtualenv, installs everything, caches the emotion model
+weights and starts both processes. After that it just starts them. `Ctrl-C`
+stops both. Add `GEMINI_API_KEY` to `backend/.env` for the transcript and
+coaching replies; everything else works without it.
+
+TensorFlow publishes no wheels for Python 3.14, so the script looks for 3.13,
+3.12 or 3.11 rather than whatever `python3` happens to be. `brew install
+python@3.13` if it cannot find one.
+
+### What running locally buys
+
+Every capture and inference setting is sized for the machine doing the work.
+Measured per frame on an Apple M4, at 1280x720:
+
+| | Local (default) | A free hosted instance |
+|---|---|---|
+| Face detection | **full resolution**, 37 ms | 320px copy, 435 ms |
+| Emotion classification | 2.3 ms | 166 ms |
+| Frame rate | **10 fps** | 1 fps |
+| JPEG quality | **0.85** | 0.6 |
+| Ceiling | ~26 fps at full resolution | ~1.6 fps |
+
+That is roughly a **tenfold increase in temporal resolution at full spatial
+resolution** — which matters, because emotion moves at the speed of a face.
+Sampling once a second throws most of the signal away, and downscaling before
+detection compounds the motion blur a Haar cascade already handles worst.
+
+Verified end to end: 720p frames at the configured rate, **100% analysed, none
+dropped**.
+
+### The client is told what rate to use
+
+The capture rate is a property of the machine running inference, and the browser
+cannot know what that is — the two numbers above differ by more than an order of
+magnitude. So the server sends `frame_interval_ms`, `idle_frame_interval_ms` and
+`jpeg_quality` in a `capture_settings` message when the socket opens, and the
+client follows them. Moving between a laptop and a small instance needs no
+frontend rebuild.
+
+Tune any of them by environment variable — see `backend/app/config.py`, where
+each carries the measurement behind its default:
+
+```bash
+FRAME_INTERVAL_MS=66 DETECT_WIDTH=0 ./run-local.sh   # ~15 fps, full resolution
+```
+
+Use `backend/tests/demos/detection_tuning_demo.py` to pick `DETECT_WIDTH` from
+your own camera, moving the way you actually move.
+
+### Deploying it somewhere, if you ever want to
+
+The whole app is still **one container** — API, WebSocket and the built SPA from
+one URL — and `Dockerfile`, `render.yaml` and `deploy/cloudrun/` are all still
+here and working. Memory was never the obstacle (292 MB against a 512 MB free
+instance); CPU is, and `render.yaml` carries the overrides that make a tenth of
+a core survivable. Frames that arrive while inference is busy are **dropped, not
+queued**, so a slow host produces a sparser readout rather than one that falls
+further behind all session.
+
+| Host | Free? | Card needed? | Notes |
+|---|---|---|---|
+| **Local** | Yes | No | **How this runs.** Full resolution, 10 fps |
+| Render | Yes, 512 MB | No | `render.yaml` committed. 0.1 CPU; sleeps after 15 min |
+| Cloud Run | Yes, within quota | Yes | [`deploy/cloudrun/`](deploy/cloudrun/README.md). 1 vCPU |
+| Fly.io | No | Yes | `fly.toml` retained; free allowances ended in 2024 |
+| Hugging Face Spaces | No | Yes | Docker Spaces require a paid plan |
+
+The container reads `PORT` (default 8080), so it runs unchanged on Render, Fly
+(8080), Spaces (7860) and Cloud Run (injected).
+
 ## Local Development
 
+`./run-local.sh` does everything below in one command — see
+[Running it](#running-it). These are the same steps by hand, for when you want
+to run the two processes separately.
+
 ### Prerequisites
-- **Python 3.10+**
+- **Python 3.11-3.13** (TensorFlow publishes no 3.14 wheels yet)
 - **Node.js 18+**
 - **ffmpeg** — required to decode browser audio. `brew install ffmpeg` (macOS) or
   `sudo apt install ffmpeg` (Debian/Ubuntu). Without it, transcription and voice
@@ -121,130 +205,24 @@ is needed; set `VITE_WS_URL` only if your backend runs somewhere other than
 
 ---
 
-## Deployment
+## Deployment Guide
 
-The whole app — API, WebSocket and the built frontend — runs as **one process**,
-so a single container host serves everything from one URL.
+Polly runs locally by default; see [Running it](#running-it).
 
-Measured footprint: **231 MB after startup, 292 MB after inference** — small
-enough for a 512 MB free instance.
+To put it on a server, the whole app builds as one container from the
+`Dockerfile` — FastAPI serves the built React files and handles WebSocket
+connections from the same process, so it is one image and one URL:
 
-**Render is the deployment target** — `render.yaml` is committed, and it is the
-only option here that needs no payment method at all.
+- **Render** — `render.yaml` is committed, needs no payment method. Blueprint
+  deploy: **New → Blueprint** → point at this repository. It carries the
+  overrides that make 0.1 CPU survivable.
+- **Cloud Run** — a full vCPU; see [`deploy/cloudrun/README.md`](deploy/cloudrun/README.md).
+- **Fly.io** — `fly.toml` is retained and works (`fly deploy`), but Fly ended its
+  free allowances in 2024. The GitHub Actions workflow for it is gated behind a
+  `FLY_ENABLED` repository variable.
 
-| Host | Free? | Card needed? | Status |
-|---|---|---|---|
-| **Render** | Yes, 512 MB | **No** | **In use.** 0.1 CPU; sleeps after 15 min idle |
-| Cloud Run | Yes, within quota | Yes | Ready to go — [`deploy/cloudrun/`](deploy/cloudrun/README.md). 1 vCPU |
-| Fly.io | No | Yes | `fly.toml` retained; free allowances ended in 2024 |
-| Hugging Face Spaces | No | Yes | Docker Spaces require a paid plan |
-| Cloudflare Pages | Yes | No | Frontend only, if egress ever becomes a limit |
-
-Memory was never the constraint — the app measures 292 MB against 512 MB. **CPU
-is**: a tenth of a shared core has to run a DeepFace inference per video frame.
-So the app is built to degrade rather than fall behind. Frames that arrive while
-inference is busy are **dropped, not queued**, which means the emotion readout
-updates more slowly on a slow host instead of drifting further behind for the
-rest of the session.
-
-Cloud Run gives a full vCPU and stays configured in `deploy/cloudrun/` for when
-that is worth putting a card on file. Its free tier requires a billing account,
-and it bills past the free tier rather than stopping.
-
-The SPA, API and WebSocket are all served by the one container from a single
-origin, so there is no CORS to configure and one URL to deploy.
-
-The container reads `PORT` (default 8080), so it runs unchanged on Fly (8080),
-Spaces (7860) and Cloud Run (injected).
-
-### Cost-shaped behaviour
-
-Two behaviours exist because hosts bill for an open WebSocket as though it were
-a request in flight for its whole life:
-
-- Frames are sent at 1/second while recording and 1/5s otherwise, and **not at
-  all while the browser tab is hidden**. Every frame costs a DeepFace inference.
-- The server closes connections silent for `WS_IDLE_TIMEOUT_SECONDS` (default
-  120; `0` disables). Reconnecting starts a new session, so a reaped session
-  loses its topic and coaching history — which is why the client sends a
-  keepalive every 45s **whenever its tab is visible**. Silence therefore means
-  the tab is hidden, not that the user is sitting still.
-
-On an always-on host set `WS_IDLE_TIMEOUT_SECONDS=0`.
-
-### Image size
-
-The runtime image installs `tensorflow-cpu` and `opencv-python-headless` instead
-of the default wheels. Measured on x86_64, `tensorflow` unpacks to 1873 MB
-against `tensorflow-cpu`'s 1273 MB — 600 MB on disk, 299 MB in a registry. deepface declares hard
-requirements on the originals, so the Dockerfile installs it with `--no-deps`
-and `backend/requirements.txt` carries its real imports; see
-[`backend/requirements-nodeps.txt`](backend/requirements-nodeps.txt). Because
-pip no longer checks those imports, the build runs
-`backend/scripts/verify_emotion_stack.py` — a real `DeepFace.analyze()` call —
-so a missing import fails the build rather than a user's first frame.
-
-## Deployment Guide (Fly.io — Single Deploy, Free Tier)
-
-The entire app (frontend + backend) deploys as **one service** on Fly.io. FastAPI serves the built React files and handles WebSocket connections from the same process. One URL, always on.
-
-### Prerequisites
-
-1. **Install the Fly CLI:**
-   ```bash
-   # macOS
-   brew install flyctl
-
-   # Linux / WSL
-   curl -L https://fly.io/install.sh | sh
-   ```
-
-2. **Create a free account:**
-   ```bash
-   fly auth signup
-   ```
-
-### Deploy (3 commands)
-
-```bash
-# From the project root (Polly-AI/)
-
-# 1. Create the app (first time only)
-fly launch --name polly-ai --region iad --no-deploy
-
-# 2. Set your Gemini API key as a secret
-fly secrets set GEMINI_API_KEY=your_key_here
-
-# 3. Deploy
-fly deploy
-```
-
-That's it. Fly.io will:
-- Build the frontend (Node stage)
-- Install Python dependencies
-- Copy the built React app into the server
-- Deploy and give you a URL like `https://polly-ai.fly.dev`
-
-### After deployment
-
-- **View your app:** `fly open`
-- **Check logs:** `fly logs`
-- **Redeploy after changes:** `fly deploy`
-- **Scale up if needed:** edit `fly.toml` → change `memory` or `cpus`
-
-### How the single-server deploy works
-
-The `Dockerfile` uses a multi-stage build:
-1. **Stage 1 (Node):** Builds the React frontend → produces `dist/`
-2. **Stage 2 (Python):** Installs backend deps, copies `dist/` into the server
-
-FastAPI serves everything:
-- `GET /` → React SPA (index.html)
-- `GET /assets/*` → JS/CSS bundles
-- `WS /ws` → WebSocket for real-time data (the server assigns the session id)
-- `GET /api/health` → Health check
-
-The frontend auto-detects the WebSocket URL from `window.location`, so no configuration is needed.
+Whichever host, remember to lower the capture settings for it: the defaults
+assume a developer machine, and `render.yaml` shows what a small instance needs.
 
 Full message protocol: [`docs/API.md`](docs/API.md).
 
@@ -286,6 +264,7 @@ git switch -c my-feature origin/main
 
 ```
 Polly-AI/
+├── run-local.sh                        # Start backend + frontend on this machine
 ├── frontend/
 │   ├── src/
 │   │   ├── main.jsx                    # Entry point
@@ -332,38 +311,6 @@ Polly-AI/
 │   └── requirements-dev.txt
 └── README.md
 ```
-
----
-
-## Testing
-
-```bash
-cd backend
-pip install -r requirements-dev.txt
-pytest
-```
-
-The suite covers scoring rules, speech-pattern analysis, topic loading, session
-statistics, JSON sanitization, and static-path traversal containment.
-
-`requirements-dev.txt` deliberately excludes the heavy runtime dependencies
-(TensorFlow, DeepFace, librosa, OpenCV) — the unit suite must not need them, which
-keeps CI to a few seconds. Install `requirements.txt` as well if you want to run the
-camera demos.
-
-Scripts in `backend/tests/demos/` open a camera window and wait for a keypress — they
-are manual diagnostics, not tests, and `pytest.ini` limits collection to `tests/unit`.
-
-Frontend checks:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-Both backend and frontend checks run in CI on every push and pull request
-(`.github/workflows/test.yml`).
 
 ---
 
