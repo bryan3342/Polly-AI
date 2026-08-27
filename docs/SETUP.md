@@ -85,29 +85,38 @@ Measured footprint is **231 MB after startup and warm-up, 292 MB after
 inference**, so it fits a 512 MB instance — which is what makes a free tier
 possible at all.
 
-| Host | Free? | Notes |
-|---|---|---|
-| **Cloud Run** | Yes, within quota | **The deployment target.** 1 vCPU, scales to zero. See [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md). |
-| Fly.io | No | Needs a card. 1 GB machine; `fly.toml` is retained. |
-| Render | Yes, 512 MB | **Dropped.** 0.1 CPU is too little for per-frame inference. |
-| **Hugging Face Spaces** | **No — see below** | Docker Spaces require PRO. |
-| Cloudflare Pages | Yes | **Frontend only**, and only if egress ever becomes a limit. |
+| Host | Free? | Card needed? | Notes |
+|---|---|---|---|
+| **Render** | Yes, 512 MB | **No** | **The deployment target.** `render.yaml` committed. 0.1 CPU; sleeps after ~15 min idle. |
+| Cloud Run | Yes, within quota | Yes | 1 vCPU, scales to zero. See [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md). |
+| Fly.io | No | Yes | 1 GB machine; `fly.toml` is retained. |
+| **Hugging Face Spaces** | **No — see below** | Yes | Docker Spaces require PRO. |
+| Cloudflare Pages | Yes | No | **Frontend only**, and only if egress ever becomes a limit. |
 
 Whatever the host, the container reads `PORT` and needs no other configuration.
 
-#### Cloud Run
+#### Render
 
-Memory was never the constraint here — CPU is. Emotion inference runs once per
-video frame, which a fraction of a core cannot keep up with, and Cloud Run's
-free tier provides a full vCPU. It also puts compute in the same project as the
-Gemini API the app already depends on.
+Blueprint deploy: **New → Blueprint** → point at this repository. `render.yaml`
+provisions a free Docker web service with a health check, and needs no payment
+method.
 
-Full walkthrough, including the free-tier arithmetic and the Artifact Registry
-cleanup policy: [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md).
+Add `GEMINI_API_KEY` in the dashboard for transcription and coaching. Without it
+the camera, face detection, emotion tracking and voice measurement still work.
 
-Add `GEMINI_API_KEY` as a Secret Manager secret for transcription and coaching.
-Without it the camera, face detection, emotion tracking and voice measurement
-still work.
+Expect it to be slow. A tenth of a shared core runs a DeepFace inference per
+video frame, so the emotion readout updates every few seconds rather than every
+second, and the post-recording report takes appreciably longer than it does
+locally. Frames are dropped rather than queued when inference cannot keep up, so
+this shows up as a sparser readout instead of a growing lag.
+
+#### Cloud Run — more CPU, but needs a card
+
+A full vCPU, and it puts compute in the same project as the Gemini API. Its free
+tier requires a billing account with a card, and bills past the free tier rather
+than stopping. Full walkthrough, including the free-tier arithmetic and the
+Artifact Registry cleanup policy:
+[`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md).
 
 #### Hugging Face Spaces — requires PRO
 
@@ -171,9 +180,10 @@ npx wrangler pages deploy dist --project-name polly-ai
 ```
 
 Only needed if the SPA is ever split off from the backend; by default the
-Cloud Run container serves it from the same origin. Backend hosts that can
-actually run the analysis: Cloud Run (the target), Fly.io, Railway, or any
-Docker host with a full core and ~1 GB of RAM.
+container serves it from the same origin. Backend hosts that can actually run
+the analysis: Render (the target), Cloud Run, Fly.io, Railway, or any Docker
+host with ~512 MB of RAM — more CPU is better, but the app degrades by dropping
+frames rather than falling behind.
 
 ## Secrets & environment
 

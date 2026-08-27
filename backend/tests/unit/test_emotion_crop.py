@@ -29,16 +29,26 @@ def _stub(name, **attrs):
         return module
 
 
+def _fake_resize(img, size, interpolation=None):
+    """Enough of cv2.resize for the geometry: produce an array of `size`."""
+    width, height = size
+    return np.zeros((height, width) + img.shape[2:], dtype=img.dtype)
+
+
 _stub("cv2", data=types.SimpleNamespace(haarcascades=""),
       CascadeClassifier=lambda *a, **k: None, cvtColor=lambda img, code: img,
-      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1,
+      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1, INTER_AREA=3, resize=_fake_resize,
       imencode=lambda ext, img: (True, types.SimpleNamespace(tobytes=lambda: b"jpeg")))
 _stub("deepface", DeepFace=types.SimpleNamespace(
     analyze=lambda *a, **k: [], build_model=lambda *a, **k: object()))
 _pil_image = _stub("PIL.Image", Image=type("Image", (), {}), open=lambda *a, **k: None)
 _stub("PIL", Image=_pil_image)
 
-from app.services.emotion_service import FACE_MARGIN, EmotionService  # noqa: E402
+from app.services.emotion_service import (  # noqa: E402
+    DETECT_WIDTH,
+    FACE_MARGIN,
+    EmotionService,
+)
 
 crop_face = EmotionService.crop_face
 
@@ -237,3 +247,75 @@ class TestWarmUp:
 
         assert results == [True] * 8
         assert len(builds) == 1
+
+
+class _RecordingCascade:
+    """A Haar cascade that records the image it was asked to search."""
+
+    def __init__(self, boxes):
+        self._boxes = boxes
+        self.searched_shape = None
+
+    def detectMultiScale(self, image, *args, **kwargs):
+        self.searched_shape = image.shape[:2]
+        return self._boxes
+
+
+class TestDetectionDownscaling:
+    """Faces are located on a downscaled copy, and reported at full scale.
+
+    Detection dominates the per-frame cost and scales with pixel count. Measured
+    on a tenth of a shared core -- the smallest free instance this deploys to --
+    searching a 640x480 frame took 2231 ms against a 1000 ms frame interval,
+    while the emotion classification behind it took 166 ms. Searching a 320px
+    copy took 435 ms, which fits.
+
+    What must not change is the coordinate space callers see: the overlay the
+    client draws and the crop the classifier receives are both in full-frame
+    terms.
+    """
+
+    def _service(self, boxes):
+        service = EmotionService.__new__(EmotionService)
+        service.face_cascade = _RecordingCascade(boxes)
+        return service
+
+    def test_the_search_runs_on_a_downscaled_copy(self):
+        service = self._service([])
+        service.detect_faces(_frame(height=480, width=640))
+
+        assert service.face_cascade.searched_shape == (240, DETECT_WIDTH), (
+            "detection should search a 320px-wide copy, not the full frame"
+        )
+
+    def test_boxes_come_back_in_full_frame_coordinates(self):
+        """The regression this guards: an overlay drawn at half scale, and a
+        crop taken from the wrong part of the frame."""
+        # A box found on the 320px copy of a 640px frame is half-scale.
+        service = self._service([(50, 40, 60, 60)])
+
+        boxes = service.detect_faces(_frame(height=480, width=640))
+
+        assert boxes == [[100, 80, 120, 120]], "boxes must be scaled back up"
+
+    def test_a_small_frame_is_not_upscaled(self):
+        """Nothing is gained by searching more pixels than were captured."""
+        service = self._service([(10, 10, 20, 20)])
+
+        boxes = service.detect_faces(_frame(height=180, width=240))
+
+        assert service.face_cascade.searched_shape == (180, 240)
+        assert boxes == [[10, 10, 20, 20]], "coordinates must pass through unchanged"
+
+    def test_the_crop_is_still_taken_from_the_full_resolution_frame(self):
+        """Downscaling is a search optimisation only. The classifier must still
+        receive real pixels, not a blown-up thumbnail."""
+        service = self._service([(50, 40, 60, 60)])
+        frame = _frame(height=480, width=640)
+        frame[80:200, 100:220] = 255              # mark the full-scale face region
+
+        box = service.detect_faces(frame)[0]
+        crop = EmotionService.crop_face(frame, box)
+
+        assert (crop == 255).any(), "the crop missed the face it was pointed at"
+        assert crop.shape[0] == 120 + 2 * int(120 * FACE_MARGIN)

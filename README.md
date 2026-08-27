@@ -129,22 +129,27 @@ so a single container host serves everything from one URL.
 Measured footprint: **231 MB after startup, 292 MB after inference** — small
 enough for a 512 MB free instance.
 
-**Google Cloud Run is the deployment target.** See
-[`deploy/cloudrun/README.md`](deploy/cloudrun/README.md).
+**Render is the deployment target** — `render.yaml` is committed, and it is the
+only option here that needs no payment method at all.
 
-CPU, not memory, is what this app is short of: emotion inference runs once per
-video frame. Cloud Run's free tier provides a full vCPU and **50 hours of
-connected time a month**, and the app already depends on Google for the Gemini
-API, so keeping compute in the same project keeps credentials and billing in one
-place.
+| Host | Free? | Card needed? | Status |
+|---|---|---|---|
+| **Render** | Yes, 512 MB | **No** | **In use.** 0.1 CPU; sleeps after 15 min idle |
+| Cloud Run | Yes, within quota | Yes | Ready to go — [`deploy/cloudrun/`](deploy/cloudrun/README.md). 1 vCPU |
+| Fly.io | No | Yes | `fly.toml` retained; free allowances ended in 2024 |
+| Hugging Face Spaces | No | Yes | Docker Spaces require a paid plan |
+| Cloudflare Pages | Yes | No | Frontend only, if egress ever becomes a limit |
 
-| Host | Free? | Status |
-|---|---|---|
-| **Cloud Run** | Yes, within quota | **In use.** 1 vCPU, scales to zero |
-| Render | Yes, 512 MB | Dropped — **0.1 CPU** is too little for per-frame inference |
-| Fly.io | No | `fly.toml` retained; free allowances ended in 2024 |
-| Hugging Face Spaces | No | Docker Spaces require a paid plan |
-| Cloudflare Pages | Yes | Frontend only, and only if egress ever becomes a limit |
+Memory was never the constraint — the app measures 292 MB against 512 MB. **CPU
+is**: a tenth of a shared core has to run a DeepFace inference per video frame.
+So the app is built to degrade rather than fall behind. Frames that arrive while
+inference is busy are **dropped, not queued**, which means the emotion readout
+updates more slowly on a slow host instead of drifting further behind for the
+rest of the session.
+
+Cloud Run gives a full vCPU and stays configured in `deploy/cloudrun/` for when
+that is worth putting a card on file. Its free tier requires a billing account,
+and it bills past the free tier rather than stopping.
 
 The SPA, API and WebSocket are all served by the one container from a single
 origin, so there is no CORS to configure and one URL to deploy.
