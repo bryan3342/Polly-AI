@@ -69,17 +69,33 @@ class Config:
     #
     # Hosted deployments override both; see render.yaml, where a tenth of a core
     # measured ~600 ms per frame and 1 fps is the ceiling.
-    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 100))
+    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 66))
 
     # The slower rate used when not recording, feeding only the live readout
     # beside the video. Still frequent enough to look responsive.
     IDLE_FRAME_INTERVAL_MS = int(os.getenv("IDLE_FRAME_INTERVAL_MS", 500))
 
     # JPEG quality for captured frames, 0-1. The classifier sees these pixels,
-    # so this is an input-fidelity setting, not just bandwidth. 0.6 was chosen
-    # when every byte crossed the public internet; on a loopback connection
-    # there is no reason not to hand the model a better image.
+    # so this is an input-fidelity setting, not just bandwidth.
     FRAME_JPEG_QUALITY = float(os.getenv("FRAME_JPEG_QUALITY", 0.85))
+
+    # Width the browser downscales each frame to before sending it.
+    #
+    # The single biggest lever on how responsive tracking feels, because the
+    # cost lands in three places at once: the browser encodes the JPEG on its
+    # main thread, the frame crosses the socket, and the server decodes and
+    # searches it. All three scale with pixel count. Measured end to end:
+    #
+    #   1280x720   53.8 ms server   907 KB   19 fps ceiling
+    #    640x360   20.3 ms server   228 KB   49 fps ceiling
+    #
+    # Nothing downstream wants those pixels. The emotion model resamples its
+    # face crop to 48x48 regardless, and a face fills enough of a 640px frame
+    # for the cascade to find it comfortably. The *displayed* video is
+    # untouched -- this is only the copy sent for analysis.
+    #
+    # 0 sends the frame at capture resolution.
+    CAPTURE_WIDTH = int(os.getenv("CAPTURE_WIDTH", 640))
 
     # Bounds on per-session in-memory state. Without these a single long-lived
     # connection can grow the process heap without limit.

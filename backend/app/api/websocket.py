@@ -15,6 +15,7 @@ from fastapi import WebSocket
 
 from app.config import config
 from app.services.analysis_service import AnalysisRequest
+from app.services.gesture_service import HAND_CONNECTIONS
 from app.services.protocols import (
     CoachingService,
     EmotionAnalyzer,
@@ -151,6 +152,11 @@ class ConnectionManager:
             "frame_interval_ms": config.FRAME_INTERVAL_MS,
             "idle_frame_interval_ms": config.IDLE_FRAME_INTERVAL_MS,
             "jpeg_quality": config.FRAME_JPEG_QUALITY,
+            "capture_width": config.CAPTURE_WIDTH,
+            # The hand skeleton's bone list is fixed by the model. It used to
+            # ride along on every frame result, which at this frame rate is the
+            # same 21 pairs sent fifteen times a second for no reason.
+            "hand_connections": HAND_CONNECTIONS,
         })
 
         await self.send_message(session_id, {
