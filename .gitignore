@@ -52,3 +52,6 @@ frontend/public/mediapipe/
 # web playback needs and far past GitHub's 100 MB per-file limit. Safe to delete
 # once you have the master somewhere else.
 frontend/public/demo-original.mp4
+
+# Built by deploy-landing.sh from frontend/public; regenerated on every run.
+landing-dist/
