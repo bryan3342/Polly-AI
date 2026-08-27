@@ -2,15 +2,14 @@
  * Mapping between the frame the server measured and the pixels on screen.
  *
  * Three things have to line up for an indicator to sit on the body part it
- * claims to be tracking, and getting any of them wrong is silently wrong —
- * the box still draws, just not where the face is:
+ * claims to be tracking, and getting any of them wrong is silently wrong, * the box still draws, just not where the face is:
  *
  * 1. The video is rendered with `object-fit: cover`, so it is scaled to fill
  *    and then cropped. The visible region is not the whole frame.
  * 2. The capture resolution is whatever the webcam gave us, not the display
  *    size, and the two rarely match.
  * 3. The video is mirrored for display (`transform: scaleX(-1)`) so the speaker
- *    sees themselves as in a mirror — but the frame *sent* to the server is
+ *    sees themselves as in a mirror, but the frame *sent* to the server is
  *    drawn from the raw video, unmirrored. Coordinates come back in that
  *    unmirrored space. The overlay canvas carries the same CSS mirror, so the
  *    maths here stays in frame space and the browser flips both together.

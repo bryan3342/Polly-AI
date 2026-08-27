@@ -92,7 +92,7 @@ class EmotionService:
             # Build the model *and* push one synthetic frame through the real
             # entry point. Constructing the model alone leaves the first genuine
             # frame paying for the graph trace, the Haar cascade's first run and
-            # the JPEG decode path — measured at 130ms, which a user experiences
+            # the JPEG decode path, measured at 130ms, which a user experiences
             # as the app stalling on the very first frame of their session.
             #
             # Marked ready *before* the synthetic frame runs: that frame goes

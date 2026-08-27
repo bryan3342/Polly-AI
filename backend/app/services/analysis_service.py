@@ -1,6 +1,6 @@
 """Post-recording analysis: turning one recording into a report.
 
-This is the domain work that happens when a user stops recording — transcribe,
+This is the domain work that happens when a user stops recording, transcribe,
 measure the voice, summarise emotion, score, and ask the coach for feedback.
 
 It lives here rather than in the WebSocket handler because none of it is about
@@ -41,7 +41,7 @@ class SessionAnalysis:
     """The finished report for one recording.
 
     Named fields rather than a free-form dict so the wire payload, the database
-    record and the feedback prompt cannot drift apart — they are all derived
+    record and the feedback prompt cannot drift apart: they are all derived
     from this one object.
     """
 

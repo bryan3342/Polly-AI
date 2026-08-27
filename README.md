@@ -8,42 +8,42 @@
 
 ## Overview
 
-Polly AI is a fullstack web application that helps users improve their **debate and public speaking skills** through real-time AI feedback. It combines **computer vision, voice analysis, and conversational AI** to deliver actionable coaching — all streamed over a single WebSocket connection.
+Polly AI is a fullstack web application that helps users improve their **debate and public speaking skills** through real-time AI feedback. It combines **computer vision, voice analysis, and conversational AI** to deliver actionable coaching, all streamed over a single WebSocket connection.
 
-Record a debate response, and Polly AI analyzes your **facial expressions, vocal tone, speech patterns, and argument quality** simultaneously, then returns a comprehensive performance report.
+Record a debate response and Polly AI analyses your **facial expressions, hand gestures, vocal tone, speech patterns and argument quality** at once, then returns a scored report.
 
 ---
 
 ## Features
 
-- **Facial Emotion Detection** — Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region
-- **Hand & Finger Tracking** — 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
-- **Live tracking indicators** — the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
-- **Speech-to-Text** — Recordings are transcribed by Gemini, verbatim, with filler words preserved
-- **Voice & Tone Analysis** — Pitch, energy, confidence, articulation and vocal stability via librosa
-- **Speech Pattern Analysis** — Words-per-minute and filler-word usage from the transcript; pauses measured from the waveform itself
-- **AI Debate Coaching** — Conversational Gemini agent that assigns topics, answers questions and writes the post-session report
-- **Performance Scoring** — Overall score (0-100) from speech, voice confidence and emotional composure. Components that could not be measured are left out rather than defaulted, so a number always means it was measured
-- **Session Persistence** — Sessions saved to SQLite with full analysis history
+- **Facial Emotion Detection**: Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region
+- **Hand & Finger Tracking**: 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
+- **Live tracking indicators**: the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
+- **Speech-to-Text**: Recordings are transcribed by Gemini, verbatim, with filler words preserved
+- **Voice & Tone Analysis**: Pitch, energy, confidence, articulation and vocal stability via librosa
+- **Speech Pattern Analysis**: Words-per-minute and filler-word usage from the transcript; pauses measured from the waveform itself
+- **AI Debate Coaching**: Conversational Gemini agent that assigns topics, answers questions and writes the post-session report
+- **Performance Scoring**: Overall score (0-100) from speech, voice confidence and emotional composure. Components that could not be measured are left out rather than defaulted, so a number always means it was measured
+- **Session Persistence**: Sessions saved to SQLite with full analysis history
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **React 19** + **Vite 7** — Fast SPA with hot reload
-- **WebSocket Context** — Single persistent connection for all real-time data
-- **MediaRecorder API** — Browser-native audio capture (WebM/Opus)
-- **Canvas API** — Video frame capture at 1fps for emotion analysis
-- **Pure CSS** — Hand-written CSS Grid layout (no framework dependencies)
+- **React 19** + **Vite 7**: Fast SPA with hot reload
+- **WebSocket Context**: Single persistent connection for all real-time data
+- **MediaRecorder API**: Browser-native audio capture (WebM/Opus)
+- **Canvas API**: Video frame capture at 1fps for emotion analysis
+- **Pure CSS**: Hand-written CSS Grid layout (no framework dependencies)
 
 ### Backend
-- **FastAPI** — Async Python web framework with WebSocket support
-- **Google Gemini** — Transcription (`gemini-2.0-flash`) plus coaching and feedback (`gemini-2.0-flash-lite`), via the `google-genai` SDK
-- **DeepFace + TensorFlow** — Facial emotion classification from video frames
-- **librosa + ffmpeg** — ffmpeg transcodes the browser's WebM/Opus recording to PCM; librosa extracts pitch, energy and spectral features
-- **SQLAlchemy + SQLite** — Session storage
-- **OpenCV** — Image preprocessing for face detection
+- **FastAPI**: Async Python web framework with WebSocket support
+- **Google Gemini**: Transcription (`gemini-2.0-flash`) plus coaching and feedback (`gemini-2.0-flash-lite`), via the `google-genai` SDK
+- **DeepFace + TensorFlow**: Facial emotion classification from video frames
+- **librosa + ffmpeg**: ffmpeg transcodes the browser's WebM/Opus recording to PCM; librosa extracts pitch, energy and spectral features
+- **SQLAlchemy + SQLite**: Session storage
+- **OpenCV**: Image preprocessing for face detection
 
 ### Architecture
 ```
@@ -92,7 +92,7 @@ Measured per frame on an Apple M4, at 1280x720:
 | Ceiling | ~26 fps at full resolution | ~1.6 fps |
 
 That is roughly a **tenfold increase in temporal resolution at full spatial
-resolution** — which matters, because emotion moves at the speed of a face.
+resolution**, which matters, because emotion moves at the speed of a face.
 Sampling once a second throws most of the signal away, and downscaling before
 detection compounds the motion blur a Haar cascade already handles worst.
 
@@ -102,13 +102,13 @@ dropped**.
 ### The client is told what rate to use
 
 The capture rate is a property of the machine running inference, and the browser
-cannot know what that is — the two numbers above differ by more than an order of
+cannot know what that is, the two numbers above differ by more than an order of
 magnitude. So the server sends `frame_interval_ms`, `idle_frame_interval_ms` and
 `jpeg_quality` in a `capture_settings` message when the socket opens, and the
 client follows them. Moving between a laptop and a small instance needs no
 frontend rebuild.
 
-Tune any of them by environment variable — see `backend/app/config.py`, where
+Tune any of them by environment variable, see `backend/app/config.py`, where
 each carries the measurement behind its default:
 
 ```bash
@@ -120,8 +120,8 @@ your own camera, moving the way you actually move.
 
 ### Deploying it somewhere, if you ever want to
 
-The whole app is still **one container** — API, WebSocket and the built SPA from
-one URL — and `Dockerfile`, `render.yaml` and `deploy/cloudrun/` are all still
+The whole app is still **one container**: API, WebSocket and the built SPA from
+one URL, and `Dockerfile`, `render.yaml` and `deploy/cloudrun/` are all still
 here and working. Memory was never the obstacle (292 MB against a 512 MB free
 instance); CPU is, and `render.yaml` carries the overrides that make a tenth of
 a core survivable. Frames that arrive while inference is busy are **dropped, not
@@ -141,17 +141,17 @@ The container reads `PORT` (default 8080), so it runs unchanged on Render, Fly
 
 ## Local Development
 
-`./run-local.sh` does everything below in one command — see
+`./run-local.sh` does everything below in one command, see
 [Running it](#running-it). These are the same steps by hand, for when you want
 to run the two processes separately.
 
 ### Prerequisites
 - **Python 3.11-3.13** (TensorFlow publishes no 3.14 wheels yet)
 - **Node.js 18+**
-- **ffmpeg** — required to decode browser audio. `brew install ffmpeg` (macOS) or
+- **ffmpeg**: required to decode browser audio. `brew install ffmpeg` (macOS) or
   `sudo apt install ffmpeg` (Debian/Ubuntu). Without it, transcription and voice
   analysis report themselves unavailable. Already present in the Docker image.
-- **Google Gemini API key** — [Get one here](https://aistudio.google.com/apikey).
+- **Google Gemini API key**: [Get one here](https://aistudio.google.com/apikey).
   Without it the app still runs: the camera, emotion detection and voice analysis
   all work, but there is no transcript and no coaching.
 
@@ -217,14 +217,14 @@ is needed; set `VITE_WS_URL` only if your backend runs somewhere other than
 Polly runs locally by default; see [Running it](#running-it).
 
 To put it on a server, the whole app builds as one container from the
-`Dockerfile` — FastAPI serves the built React files and handles WebSocket
+`Dockerfile`, FastAPI serves the built React files and handles WebSocket
 connections from the same process, so it is one image and one URL:
 
-- **Render** — `render.yaml` is committed, needs no payment method. Blueprint
+- **Render**: `render.yaml` is committed, needs no payment method. Blueprint
   deploy: **New → Blueprint** → point at this repository. It carries the
   overrides that make 0.1 CPU survivable.
-- **Cloud Run** — a full vCPU; see [`deploy/cloudrun/README.md`](deploy/cloudrun/README.md).
-- **Fly.io** — `fly.toml` is retained and works (`fly deploy`), but Fly ended its
+- **Cloud Run**: a full vCPU; see [`deploy/cloudrun/README.md`](deploy/cloudrun/README.md).
+- **Fly.io**: `fly.toml` is retained and works (`fly deploy`), but Fly ended its
   free allowances in 2024. The GitHub Actions workflow for it is gated behind a
   `FLY_ENABLED` repository variable.
 
@@ -237,29 +237,29 @@ Full message protocol: [`docs/API.md`](docs/API.md).
 
 ## How It Works
 
-1. **User opens the app** — WebSocket connects, a random debate topic is assigned
-2. **User clicks Record** — MediaRecorder captures audio; video frames are sent at 1fps
-3. **Real-time emotion tracking** — Each frame is analyzed by DeepFace, results stream back instantly
-4. **User clicks Stop** — Audio blob is sent to the backend for processing
+1. **User opens the app**: WebSocket connects and a random debate topic is assigned
+2. **User clicks Record**: MediaRecorder captures audio; video frames are sent at 1fps
+3. **Real-time emotion tracking**: Each frame is analyzed by DeepFace, results stream back instantly
+4. **User clicks Stop**: Audio blob is sent to the backend for processing
 5. **Backend analyzes everything:**
    - Transcribes speech
    - Analyzes vocal tone (pitch, energy, confidence)
    - Summarizes emotional patterns
-   - Gemini AI generates comprehensive feedback
-6. **Results appear in chat** — Strengths, weaknesses, and actionable tips
-7. **User can also chat directly** — Ask Polly AI for debate tips, practice arguments, or get coaching
+   - Gemini writes the feedback
+6. **Results appear in chat**: Strengths, weaknesses, and actionable tips
+7. **User can also chat directly**: Ask Polly AI for debate tips, practice arguments, or get coaching
 
 ---
 
 ## Repository & Branches
 
-This repository is a **single consolidated tree** — one FastAPI `backend/`, one React/Vite
+This repository is a **single consolidated tree**: one FastAPI `backend/`, one React/Vite
 `frontend/`, and shared `docs/`, all committed on **`main`, which is the single source of
 truth**. There are no nested or duplicate app copies.
 
 Older branches (`Napoli`, `demo-ready-branch`, `final`, `feature/frontend-fixes`,
 `backup/local-main-*`) predate this consolidation (last active 2025-10) and are being
-archived/removed — do not branch from them. Start all new work from `main`:
+archived/removed, do not branch from them. Start all new work from `main`:
 
 ```bash
 git switch -c my-feature origin/main
@@ -330,7 +330,7 @@ pytest
 ```
 
 The unit suite runs headless and does not need the ML stack, a network
-connection or an API key — anything heavy is stubbed. `backend/tests/demos/`
+connection or an API key; anything heavy is stubbed. `backend/tests/demos/`
 holds interactive webcam scripts and is excluded from collection.
 
 ---
@@ -339,7 +339,7 @@ holds interactive webcam scripts and is excluded from collection.
 
 - Gesture and body-language analysis
 - Performance analytics dashboard with historical trends (needs REST endpoints
-  over the stored sessions — see `docs/API.md`)
+  over the stored sessions, see `docs/API.md`)
 - Multi-language transcription and coaching
 - Real-time counter-argument generation
 - User accounts, so history belongs to a person (see the auth note in

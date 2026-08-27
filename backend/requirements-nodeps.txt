@@ -1,4 +1,4 @@
-# Installed with `pip install --no-deps` — see the Dockerfile.
+# Installed with `pip install --no-deps`, see the Dockerfile.
 #
 # deepface declares hard requirements on `tensorflow` and `opencv-python`. Both
 # are satisfied here by deliberately chosen variants instead:

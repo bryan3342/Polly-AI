@@ -1,4 +1,4 @@
-# Render blueprint — deploys the whole app (API, WebSocket and the built SPA)
+# Render blueprint, deploys the whole app (API, WebSocket and the built SPA)
 # as one Docker service, on a free instance that needs no payment method.
 #
 # That last part is why this is the target. Cloud Run offers more CPU, but its

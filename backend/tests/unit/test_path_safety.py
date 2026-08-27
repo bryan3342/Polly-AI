@@ -56,9 +56,9 @@ def test_backslash_traversal_rejected_on_windows(static_root):
 def test_result_is_always_none_or_inside_the_root(static_root, path):
     """The invariant that actually matters: never hand back a path outside the root.
 
-    Whether an exotic segment resolves away is platform-dependent — Windows
+    Whether an exotic segment resolves away is platform-dependent, Windows
     rewrites a run of dots, POSIX treats it as a literal directory name, and a
-    backslash is a separator only on Windows — so asserting a specific verdict
+    backslash is a separator only on Windows, so asserting a specific verdict
     per payload bakes in the host OS. This asserts the security property, which
     holds everywhere.
     """

@@ -38,7 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Keep the model cache at a fixed, world-readable path. DeepFace defaults to
 # $HOME/.deepface, and build-time and run-time users differ on some hosts
 # (Hugging Face Spaces runs as uid 1000), which would silently re-download the
-# weights on first request — the exact failure this bake exists to prevent.
+# weights on first request: the exact failure this bake exists to prevent.
 ENV DEEPFACE_HOME=/app
 
 # Bake the emotion model weights into the image.
@@ -46,7 +46,7 @@ ENV DEEPFACE_HOME=/app
 # DeepFace fetches them from a remote host the first time a frame is analysed.
 # In a fresh container that made the first user wait for a download, and made
 # emotion detection depend on a third-party host being reachable at request
-# time — a runtime failure mode for something that is really a build input.
+# time: a runtime failure mode for something that is really a build input.
 # The build also has to prove the trimmed install actually works. Because
 # deepface is installed with --no-deps, a missing transitive import surfaces
 # only when the code path runs -- and CI never runs it, since the unit suite

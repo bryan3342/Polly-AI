@@ -153,8 +153,7 @@ class TestWarmUp:
     """The model is built before a user's first frame, not during it.
 
     Lazily constructing it meant the first frame of the first session paid for
-    the graph trace, the Haar cascade's first run and the JPEG decode path —
-    measured at 130ms, which reads to that user as the app stalling.
+    the graph trace, the Haar cascade's first run and the JPEG decode path, measured at 130ms, which reads to that user as the app stalling.
 
     Warm-up runs on a background thread now (so the server can bind its port
     without waiting for TensorFlow), which means it can overlap with the first

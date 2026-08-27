@@ -1,8 +1,8 @@
 """Composition root: the one place that knows the concrete implementations.
 
 Everything else depends on the protocols in `app.services.protocols`. Wiring
-lives here so that swapping an implementation — a different STT provider, an
-in-memory repository for a test — is a change to this file only, and so
+lives here so that swapping an implementation, a different STT provider, an
+in-memory repository for a test, is a change to this file only, and so
 importing the transport layer does not drag in TensorFlow, OpenCV, librosa and
 the Gemini SDK.
 
