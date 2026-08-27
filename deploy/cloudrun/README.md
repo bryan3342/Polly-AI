@@ -13,7 +13,7 @@ Cloud Run's free allowance is per billing account per month, for services using
 | CPU | 180,000 vCPU-seconds | **50 hours** of billed instance time at 1 vCPU |
 | Memory | 360,000 GiB-seconds | 100 hours at 1 GiB — not the binding limit |
 | Requests | 2,000,000 | Not reachable for this app |
-| Egress | 1 GiB from North America | ~15,000 SPA loads, if the SPA is served from here |
+| Egress | 1 GiB from North America | ~15,000 SPA loads — this service serves the SPA |
 
 Two things are billed separately and can produce a charge even when Cloud Run
 itself is free:
@@ -29,17 +29,26 @@ Billed instance time covers container startup, shutdown, and **any period with
 at least one request in flight**. A WebSocket is a single long-lived request, so
 a connected browser tab bills continuously — whether or not anyone is using it.
 
-Two changes in the app keep that honest, and the free tier depends on both:
+Three behaviours in the app keep that honest, and the free tier depends on all
+three working together:
 
-- The server closes connections silent for `WS_IDLE_TIMEOUT_SECONDS` (600).
-- The client sends no frames while its tab is hidden. Without this the timeout
-  would never fire: browsers keep hidden-tab timers running, just throttled to
-  roughly once a minute, and one frame a minute keeps a connection looking busy.
+| Tab state | Client sends | Result |
+|---|---|---|
+| Visible, recording | frames at 1/s | billed, and earning it |
+| Visible, idle or camera off | frames at 1/5s, or a keepalive every 45s | stays connected — the user is there |
+| **Hidden** | **nothing at all** | reaped after 120s, instance scales to zero |
 
-Reconnecting starts a **new** session — the server mints session ids and never
-accepts one from the client — so a reaped session loses its topic and coaching
-history. Ten minutes of total silence is the bet that the user has gone. Set
-`WS_IDLE_TIMEOUT_SECONDS=0` to disable reaping on an always-on host.
+The hidden-tab case is the one that matters, and the client's `document.hidden`
+guard is load-bearing: browsers keep hidden-tab timers running, just throttled to
+roughly once a minute, and one frame a minute would keep a connection looking
+busy forever.
+
+The keepalive is what makes a window this short safe. Reconnecting starts a
+**new** session — the server mints session ids and never accepts one from the
+client — so a reaped session loses its topic and coaching history. Without the
+keepalive, a user reading their report with the camera off would be silent, and
+would lose it. Set `WS_IDLE_TIMEOUT_SECONDS=0` to disable reaping entirely on an
+always-on host.
 
 ## One-time setup
 
@@ -121,12 +130,19 @@ gcloud run services add-iam-policy-binding polly-ai --region="$REGION" \
 `--platform linux/amd64` matters on an Apple Silicon machine: Cloud Run is
 x86_64, and `tensorflow-cpu` publishes x86_64 wheels only.
 
-## The frontend goes somewhere else
+## The frontend is served from here
 
-Serving the built SPA from Cloud Run spends the 1 GiB egress allowance on static
-assets (~72 KB gzipped per load, so roughly 15,000 visits). Put it on Cloudflare
-Pages instead and point it at this service, which leaves Cloud Run serving only
-WebSocket JSON:
+One container, one origin, one URL — the SPA, the API and the WebSocket all come
+from this service, and the browser never makes a cross-origin request.
+
+That spends the 1 GiB monthly egress allowance on static assets, at ~72 KB
+gzipped per load: roughly **15,000 page loads a month** before egress bills. That
+is a long way from being the binding limit, and single-origin keeps the whole
+deployment one thing to reason about.
+
+If the app ever outgrows that, the split is already supported — the client reads
+`VITE_WS_URL` — and moving the SPA to Cloudflare Pages takes Cloud Run's egress
+to approximately zero:
 
 ```bash
 cd frontend
@@ -134,7 +150,7 @@ VITE_WS_URL=wss://polly-ai-xxxxx-uc.a.run.app npm run build
 npx wrangler pages deploy dist
 ```
 
-Then set `CORS_ORIGINS` in `service.yaml` to the Pages origin.
+That also means setting `CORS_ORIGINS` in `service.yaml` to the Pages origin.
 
 ## Guard rails
 

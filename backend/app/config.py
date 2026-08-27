@@ -45,15 +45,23 @@ class Config:
     # the clock while doing nothing at all. Closing idle sockets is what lets
     # the instance scale back to zero.
     #
-    # The client stops sending frames when its tab is hidden and reconnects when
-    # the tab is next shown, so in practice this reaps abandoned tabs. It is set
-    # generously because reconnecting starts a *new* session: the server mints
-    # session ids and never accepts one from the client (see the /ws handler),
-    # so a reaped session loses its topic and coaching history. Ten minutes of
-    # complete silence means the user has gone.
+    # "Silent" is defined by the client, and deliberately: it sends frames while
+    # its tab is visible, and a keepalive when the tab is visible but frames are
+    # not flowing (camera off, or reading the report). A hidden tab sends
+    # nothing at all. So this reaps *abandoned* tabs, not idle users -- which is
+    # what makes a window this short safe.
+    #
+    # It has to be short to be worth anything: the waste being reclaimed is the
+    # gap between the user leaving and the socket closing, so a ten-minute
+    # window reclaims almost nothing.
+    #
+    # It still matters that reconnecting starts a *new* session: the server
+    # mints session ids and never accepts one from the client (see the /ws
+    # handler), so a reaped session loses its topic and coaching history. The
+    # keepalive is what keeps that from happening to someone still at the page.
     #
     # Set to 0 to disable, which is the right thing on an always-on host.
-    WS_IDLE_TIMEOUT_SECONDS = float(os.getenv("WS_IDLE_TIMEOUT_SECONDS", 600))
+    WS_IDLE_TIMEOUT_SECONDS = float(os.getenv("WS_IDLE_TIMEOUT_SECONDS", 120))
 
 
 config = Config()

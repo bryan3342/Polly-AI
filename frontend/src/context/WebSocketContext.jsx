@@ -21,6 +21,13 @@ const FRAME_MS = 1000;
 // nobody scores. The readout still updates, just less often.
 const IDLE_FRAME_MS = 5000;
 
+// How often to tell the server we are still here while the tab is visible but
+// no frames are flowing -- the camera is off, or the user is reading their
+// report. Without this the server would reap them mid-read: it cannot tell
+// "user sitting on the page with the camera off" from "tab abandoned", and both
+// look like silence. Comfortably under WS_IDLE_TIMEOUT_SECONDS (120).
+const KEEPALIVE_MS = 45000;
+
 // The server closes inactive connections with this code to let a
 // per-request-billed host scale to zero; see Config.WS_IDLE_TIMEOUT_SECONDS.
 // It is an expected, benign close, so it must not surface as a lost-connection
@@ -103,6 +110,19 @@ export function WebSocketProvider({ children }) {
             setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
             ws.current?.close();
         };
+    }, []);
+
+    // Keepalive. Gated on visibility, which is the whole point: a visible tab is
+    // a present user and worth keeping a connection open for, while a hidden one
+    // should be allowed to lapse so the server can scale to zero.
+    useEffect(() => {
+        const id = setInterval(() => {
+            if (document.hidden) return;
+            if (ws.current?.readyState === WebSocket.OPEN) {
+                ws.current.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, KEEPALIVE_MS);
+        return () => clearInterval(id);
     }, []);
 
     useEffect(() => {
