@@ -31,10 +31,31 @@ class Config:
     MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", 25 * 1024 * 1024))   # 25 MB
     MAX_EMOTION_FRAMES = int(os.getenv("MAX_EMOTION_FRAMES", 3600))         # ~1 hr at 1 fps
     # How many emotion inferences may run concurrently on worker threads. The
-    # TensorFlow graph behind DeepFace is not safely reentrant and the default
-    # Fly VM is a single shared CPU, so this stays low; raise it alongside cpus
-    # in fly.toml if frames start queueing.
-    MAX_CONCURRENT_INFERENCES = int(os.getenv("MAX_CONCURRENT_INFERENCES", 2))
+    # TensorFlow graph behind DeepFace is not safely reentrant, and the target
+    # host (Render's free instance) is a tenth of a shared core, so a second
+    # concurrent inference there does not add throughput -- it just splits the
+    # same sliver of CPU two ways and makes both slower.
+    #
+    # Frames that arrive while every slot is busy are dropped, not queued (see
+    # ConnectionManager.process_frame), so raising this raises how much work is
+    # attempted at once, not how far behind the server is allowed to fall.
+    # Raise it on a host with whole cores to spare.
+    MAX_CONCURRENT_INFERENCES = int(os.getenv("MAX_CONCURRENT_INFERENCES", 1))
+
+    # Width, in pixels, of the copy the Haar cascade searches for a face.
+    #
+    # Locating the face dominates the per-frame cost, and it scales with pixel
+    # count. Measured on a tenth of a shared core: searching a 640x480 frame
+    # took 2231 ms against a 1000 ms frame interval, while the emotion
+    # classification behind it took 166 ms. Searching a 320px copy took 435 ms.
+    #
+    # Lower is faster but detects smaller faces less reliably, which matters for
+    # someone sitting further back or moving quickly. With the cascade's 30px
+    # minimum, 320 means a face must fill ~9% of the frame width -- a webcam
+    # portrait is typically 25-40%, so there is real margin. Raise it if faces
+    # are being missed; tests/demos/detection_tuning_demo.py measures both the
+    # speed and the hit rate against a live camera.
+    DETECT_WIDTH = int(os.getenv("DETECT_WIDTH", 320))
 
     # How long a connection may go without sending anything before the server
     # closes it.

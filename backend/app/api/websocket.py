@@ -122,6 +122,7 @@ class ConnectionManager:
         self.session_data[session_id] = {
             "start_time": datetime.now(),
             "frame_count": 0,
+            "frames_dropped": 0,
             "emotions": [],
             "topic": topic,
             "recording_state": "idle",  # idle, recording, processing, complete
@@ -194,6 +195,27 @@ class ConnectionManager:
         return self.emotion_service.analyze_encoded_frame(frame_data)
 
     async def process_frame(self, session_id: str, frame_data: str, timestamp: float):
+        # Drop this frame if every inference slot is busy, rather than waiting
+        # for one.
+        #
+        # Frames arrive on a fixed clock -- once a second while recording -- but
+        # inference takes however long the host's CPU takes. Where that is
+        # slower than the arrival rate, awaiting the semaphore queued the
+        # backlog: latency grew without bound, memory with it, and every frame
+        # that finally ran described a moment that had long passed. On a small
+        # shared CPU that is not an edge case, it is the normal state.
+        #
+        # Dropping is the honest response. Emotion tracking is a sample of a
+        # continuous signal, so a sparser sample is a real answer, where a
+        # minutes-stale one is not. What the user sees is a readout that updates
+        # more slowly on a slow host, instead of one that falls progressively
+        # further behind for the rest of the session.
+        if self._inference_slots.locked():
+            session = self.get_session(session_id)
+            if session is not None:
+                session["frames_dropped"] += 1
+            return
+
         try:
             # Base64/JPEG decoding and DeepFace inference are both CPU-bound and
             # synchronous. Run directly in this coroutine they blocked the whole
@@ -203,8 +225,7 @@ class ConnectionManager:
             # The semaphore bounds how many inferences run at once: the
             # underlying TensorFlow graph is not safely reentrant, and letting
             # N clients each start an inference would thrash CPU and memory on
-            # a shared-CPU instance. Requests beyond the limit wait their turn
-            # instead of piling onto the loop.
+            # a shared-CPU instance.
             async with self._inference_slots:
                 result = await asyncio.to_thread(self._analyze_frame_blocking, frame_data)
         except Exception:

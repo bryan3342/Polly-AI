@@ -1,5 +1,14 @@
 # Deploying Polly AI to Cloud Run (free tier)
 
+> **Not the default.** Render is the deployment target (`render.yaml`), because
+> it needs no payment method. Cloud Run's free tier requires a billing account
+> with a card on file — which places an authorisation hold — and it bills past
+> the free tier rather than stopping.
+>
+> This is kept ready for when a full vCPU is worth that. Render's free instance
+> is 0.1 CPU, and this app runs a DeepFace inference per video frame, so Cloud
+> Run is roughly ten times the compute.
+
 The whole app runs as one container. This directory holds the pieces needed to
 run it inside Google Cloud Run's **always-free** tier rather than merely cheaply.
 

@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 
+from app.config import config
 from app.utils.imaging import base64_to_image
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,15 @@ logger = logging.getLogger(__name__)
 # crop tight to the face; expression cues at the brow, jaw and mouth corners sit
 # right on that boundary, so a little context measurably helps the classifier.
 FACE_MARGIN = 0.18
+
+# Width of the copy the Haar cascade searches. Configurable because the right
+# value depends on the camera and how far back the speaker sits; see
+# Config.DETECT_WIDTH for the measurements behind the default.
+#
+# Only the *search* is downscaled. The box is scaled back up and the crop is
+# taken from the original frame, so the classifier still receives
+# full-resolution pixels.
+DETECT_WIDTH = config.DETECT_WIDTH
 
 
 def empty_result() -> Dict:
@@ -147,6 +157,31 @@ class EmotionService:
 
         return self.analyze_frame(frame) or empty_result()
 
+    def detect_faces(self, frame: np.ndarray) -> List[List[int]]:
+        """Locate faces, searching a downscaled copy for speed.
+
+        Returns boxes in the *original* frame's coordinates, so callers never
+        see the downscaling. Kept separate from classification so the geometry
+        is unit-testable without the ML stack.
+        """
+        height, width = frame.shape[:2]
+        scale = DETECT_WIDTH / width if width > DETECT_WIDTH else 1.0
+
+        if scale < 1.0:
+            search = cv2.resize(
+                frame, (int(width * scale), int(height * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+        else:
+            search = frame
+
+        gray = cv2.cvtColor(search, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+
+        # Back to full-resolution coordinates. The overlay the client draws and
+        # the crop the classifier sees are both in those terms.
+        return [[int(v / scale) for v in box] for box in faces]
+
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
         # A frame can arrive while the background warm-up is still running, or
         # after it failed. Building here too keeps that from racing: this either
@@ -154,17 +189,15 @@ class EmotionService:
         self.warm_up()
 
         try:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+            faces = self.detect_faces(frame)
 
             if len(faces) == 0:
                 return empty_result()
 
-            # detectMultiScale returns boxes in no meaningful order, so picking
-            # faces[0] could follow a face in the background between frames.
-            # The largest box is the person actually addressing the camera.
-            (x, y, w, h) = max(faces, key=lambda box: int(box[2]) * int(box[3]))
-            bounding_box = [int(x), int(y), int(w), int(h)]
+            # Boxes come back in no meaningful order, so picking faces[0] could
+            # follow a face in the background between frames. The largest box is
+            # the person actually addressing the camera.
+            bounding_box = max(faces, key=lambda box: box[2] * box[3])
 
             # Classify the face, not the room. detector_backend="skip" tells
             # DeepFace to treat its input as an already-cropped face; it was
