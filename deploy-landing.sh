@@ -13,16 +13,20 @@
 # First time: npx wrangler login
 #
 # On the URL. pages.dev subdomains are unique across every Cloudflare account,
-# not just yours, so a project named `polly-ai` does not necessarily get
-# polly-ai.pages.dev; if the name is taken, Cloudflare appends a suffix and you
-# get something like polly-ai-e2a.pages.dev instead. The name it hands out is
-# printed at the end of the deploy, and that is the URL to use. Visiting the
-# unsuffixed one may well load a stranger's site.
+# not just yours, so a project name does not necessarily get the matching
+# subdomain; if it is taken, Cloudflare appends a suffix.
+#
+# `polly-ai` was taken by an unrelated account, which is how the first deploy
+# here landed on polly-ai-e2a.pages.dev while polly-ai.pages.dev served
+# somebody else's site entirely. `pollyai` was free, hence the name below.
+#
+# Whatever Cloudflare hands out is printed at the end of the deploy, and that
+# is the URL to use.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 OUT=landing-dist
-PROJECT=${CF_PROJECT:-polly-ai}
+PROJECT=${CF_PROJECT:-pollyai}
 SRC=frontend/public
 
 rm -rf "$OUT"
@@ -78,7 +82,15 @@ fi
 
 echo
 echo "Deploying to Cloudflare Pages project '$PROJECT'..."
-npx wrangler pages deploy "$OUT" --project-name "$PROJECT" --commit-dirty=true | tee /tmp/pages-deploy.log
+# --branch is explicit, and matters. Without it wrangler infers the branch from
+# git, and any branch that is not the project's production branch produces a
+# *preview* deployment: the apex pollyai.pages.dev keeps returning 404 while a
+# long per-branch alias quietly works. What is being uploaded here is a built
+# artifact, not a branch, so it always belongs on production.
+npx wrangler pages deploy "$OUT" \
+    --project-name "$PROJECT" \
+    --branch "${CF_BRANCH:-main}" \
+    --commit-dirty=true | tee /tmp/pages-deploy.log
 
 # Wrangler prints two URLs: one for this deployment specifically and one that
 # always points at the latest. Repeat the second, since that is the one worth
