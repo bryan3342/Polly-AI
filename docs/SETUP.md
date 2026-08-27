@@ -87,7 +87,8 @@ possible at all.
 
 | Host | Free? | Card needed? | Notes |
 |---|---|---|---|
-| **Render** | Yes, 512 MB | **No** | **The deployment target.** `render.yaml` committed. 0.1 CPU; sleeps after ~15 min idle. |
+| **This machine** | Yes | **No** | **How this runs.** `./run-local.sh`. Full-resolution detection at 10 fps. |
+| Render | Yes, 512 MB | No | `render.yaml` committed. 0.1 CPU; sleeps after ~15 min idle. |
 | Cloud Run | Yes, within quota | Yes | 1 vCPU, scales to zero. See [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md). |
 | Fly.io | No | Yes | 1 GB machine; `fly.toml` is retained. |
 | **Hugging Face Spaces** | **No — see below** | Yes | Docker Spaces require PRO. |

@@ -29,11 +29,36 @@ services:
       - key: PORT
         value: 10000
 
+      # Everything below overrides a default tuned for a developer machine,
+      # which is where this now runs day to day. A tenth of a shared core is
+      # roughly sixty times slower, so every capture and inference setting has
+      # to come down with it.
+
       # One inference at a time. On a tenth of a core a second concurrent
       # inference adds no throughput -- it splits the same sliver of CPU two
       # ways and makes both slower.
       - key: MAX_CONCURRENT_INFERENCES
         value: 1
+
+      # Capture rate, served to the browser when it connects. Measured here:
+      # ~600 ms per frame, so one frame a second is the ceiling, against the
+      # 100 ms (10 fps) a laptop sustains at full resolution.
+      - key: FRAME_INTERVAL_MS
+        value: 1000
+      - key: IDLE_FRAME_INTERVAL_MS
+        value: 5000
+
+      # Smaller frames: less to decode per frame, and less to push over the
+      # public internet than over loopback.
+      - key: FRAME_JPEG_QUALITY
+        value: 0.6
+
+      # Search a 320px-wide copy for the face. Full resolution measured 2231 ms
+      # here against a 1000 ms budget; 320px measured 435 ms. Locally this is 0
+      # (no downscaling), because full-resolution detection costs ~37 ms there
+      # and accuracy is worth more than the time.
+      - key: DETECT_WIDTH
+        value: 320
 
       # Close sockets silent for two minutes.
       #

@@ -33,3 +33,8 @@ dist/
 _site/
 .jekyll-cache/
 Gemfile.lock
+
+# DeepFace model weights, downloaded on first run (run-local.sh caches them here,
+# and the Dockerfile bakes them into the image). ~6 MB of binary that the code
+# fetches for itself; nothing here should be a source artifact.
+backend/.deepface/
