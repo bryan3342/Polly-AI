@@ -9,7 +9,8 @@ from app.config import config
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-2.0-flash-lite"
+# Configurable, and versioned: model names expire. See Config.CHAT_MODEL.
+MODEL_NAME = config.CHAT_MODEL
 MAX_RETRIES = 3
 MAX_HISTORY_MESSAGES = 20
 

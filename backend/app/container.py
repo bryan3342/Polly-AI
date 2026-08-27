@@ -13,10 +13,12 @@ import logging
 from typing import Callable, NamedTuple
 
 from app.api.websocket import ConnectionManager
+from app.config import config
 from app.models.repository import SqlSessionRepository
 from app.services.analysis_service import SessionAnalysisService
 from app.services.chat_service import ChatService
 from app.services.emotion_service import EmotionService
+from app.services.model_check import check_configured_models
 from app.services.prompts import build_feedback_prompt
 from app.services.speech_service import SpeechService
 from app.services.topic_service import TopicService
@@ -63,9 +65,26 @@ def build_application() -> Application:
         repository=SqlSessionRepository(),
     )
 
+    def warm_up() -> bool:
+        """The startup work that must not hold up the port bind.
+
+        Two unrelated things, deliberately together: both are slow, neither is
+        needed before the server can accept a connection, and both are better
+        discovered at startup than by a user mid-session.
+        """
+        ready = emotion_service.warm_up()
+        # Names expire. Checked here so a retired model is an error in the log
+        # at startup, rather than a coach that mysteriously "has trouble
+        # responding" once someone is already recording.
+        check_configured_models(
+            config.GEMINI_API_KEY,
+            [config.TRANSCRIPTION_MODEL, config.CHAT_MODEL],
+        )
+        return ready
+
     # Building the emotion model used to happen right here, during import. That
     # made uvicorn's port bind wait for TensorFlow to load: on a small shared
     # CPU that is tens of seconds of a host's startup budget spent before the
     # health check can even be answered, and Cloud Run caps container startup at
     # 4 minutes. The caller now schedules this in the background instead.
-    return Application(manager=manager, warm_up=emotion_service.warm_up)
+    return Application(manager=manager, warm_up=warm_up)
