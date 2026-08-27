@@ -36,5 +36,24 @@ class Config:
     # in fly.toml if frames start queueing.
     MAX_CONCURRENT_INFERENCES = int(os.getenv("MAX_CONCURRENT_INFERENCES", 2))
 
+    # How long a connection may go without sending anything before the server
+    # closes it.
+    #
+    # This exists for cost, not for hygiene. On a per-request-billed host
+    # (Cloud Run) an open WebSocket counts as a request for its entire life, so
+    # a browser tab left open in the background bills for CPU and memory around
+    # the clock while doing nothing at all. Closing idle sockets is what lets
+    # the instance scale back to zero.
+    #
+    # The client stops sending frames when its tab is hidden and reconnects when
+    # the tab is next shown, so in practice this reaps abandoned tabs. It is set
+    # generously because reconnecting starts a *new* session: the server mints
+    # session ids and never accepts one from the client (see the /ws handler),
+    # so a reaped session loses its topic and coaching history. Ten minutes of
+    # complete silence means the user has gone.
+    #
+    # Set to 0 to disable, which is the right thing on an always-on host.
+    WS_IDLE_TIMEOUT_SECONDS = float(os.getenv("WS_IDLE_TIMEOUT_SECONDS", 600))
+
 
 config = Config()

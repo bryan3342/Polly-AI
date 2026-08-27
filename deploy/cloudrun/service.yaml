@@ -1,0 +1,101 @@
+# Cloud Run service, sized to stay inside the always-free tier.
+#
+# The free allowance for request-based billing is, per billing account per month:
+#
+#   CPU       180,000 vCPU-seconds
+#   Memory    360,000 GiB-seconds
+#   Requests  2,000,000
+#   Egress    1 GiB from North America
+#
+# At 1 vCPU and 1 GiB, CPU runs out first: 180,000 vCPU-s is 50 hours of billed
+# instance time a month. Memory at that size allows 100 hours, so the second
+# gibibyte is effectively free headroom -- which is why this asks for 1 GiB and
+# not the 512 MiB the process actually needs. Asking for less would not buy any
+# extra hours; it would only make an OOM more likely.
+#
+# What counts toward those 50 hours is "billed instance time": container
+# startup, shutdown, and any period with at least one request in flight. A
+# WebSocket is one long request, so a connected browser tab bills continuously
+# whether or not the user is doing anything. That is what
+# WS_IDLE_TIMEOUT_SECONDS below is for.
+#
+# Deploy with:
+#   gcloud run services replace deploy/cloudrun/service.yaml --region=us-central1
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: polly-ai
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero. Any minimum above zero bills a separate idle rate
+        # around the clock, which on its own would exhaust the monthly CPU
+        # allowance in about two days.
+        autoscaling.knative.dev/minScale: "0"
+        # A backstop, not a capacity plan. Cloud Run does not stop at the free
+        # tier -- it bills past it -- so this bounds what a traffic spike or a
+        # client stuck in a reconnect loop can possibly cost.
+        autoscaling.knative.dev/maxScale: "3"
+        # Startup CPU boost is deliberately left off. It shortens cold starts on
+        # an image this size, but it does so by allocating more vCPU, and vCPU-
+        # seconds are the scarce resource here. Turn it on if cold starts matter
+        # more than the free-tier margin:
+        #   run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      # Several sessions share one instance, and one instance bills once no
+      # matter how many requests it is serving -- so concurrency is the main
+      # lever on cost for simultaneous users.
+      #
+      # Bounded by memory rather than CPU: each session may buffer up to
+      # MAX_AUDIO_BYTES (25 MB) of recording. 8 x 25 MB on top of a ~292 MB
+      # resident set still fits 1 GiB with room to spare.
+      containerConcurrency: 8
+      # The ceiling for a single WebSocket, and Cloud Run's maximum. Sessions
+      # are reaped long before this by the idle timeout; this only decides when
+      # a genuinely active hour-long session gets cut (the client reconnects).
+      timeoutSeconds: 3600
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/polly/polly-ai:latest
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          env:
+            # Close connections that have been silent for 10 minutes so an
+            # abandoned tab stops billing and the instance can scale to zero.
+            - name: WS_IDLE_TIMEOUT_SECONDS
+              value: "600"
+            # The frontend is served from Cloudflare Pages, so this origin has
+            # to be allowed explicitly. Serving the SPA from here instead would
+            # spend the 1 GiB egress allowance on static assets.
+            - name: CORS_ORIGINS
+              value: https://polly-ai.pages.dev
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gemini-api-key
+                  key: latest
+          startupProbe:
+            # The container now binds its port before TensorFlow loads (the
+            # emotion model warms up on a background thread), so startup is
+            # quick. The allowance is still generous because Cloud Run fails the
+            # revision outright at 240s, and a cold pull of this image is slow.
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /api/health
+            periodSeconds: 30
+            timeoutSeconds: 5
+  traffic:
+    - percent: 100
+      latestRevision: true

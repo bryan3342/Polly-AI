@@ -1,0 +1,24 @@
+# Installed with `pip install --no-deps` — see the Dockerfile.
+#
+# deepface declares hard requirements on `tensorflow` and `opencv-python`. Both
+# are satisfied here by deliberately chosen variants instead:
+#
+#   tensorflow        -> tensorflow-cpu           (299 MB smaller; no GPU on Cloud Run)
+#   opencv-python     -> opencv-python-headless   (no GUI in a server)
+#
+# Installing deepface normally would drag the originals back in *alongside* the
+# variants, making the image ~310 MB larger rather than smaller. --no-deps is
+# what keeps the substitution; its real imports are pinned in requirements.txt.
+#
+# mtcnn and retina-face are alternative face detectors that this app never uses
+# (EmotionService detects with an OpenCV Haar cascade and calls DeepFace with
+# detector_backend="skip"). They are still listed because deepface imports them
+# eagerly at module load, and they are --no-deps for the same reason as above:
+# both depend on `tensorflow` and `opencv-python`.
+#
+# Adding a package here means checking what it imports at load time. The
+# Dockerfile runs a real DeepFace.analyze() at build time so that a missing
+# transitive import fails the build instead of the first user's session.
+deepface>=0.0.79,<0.1.0
+mtcnn>=0.1.0,<2.0.0
+retina-face>=0.0.14,<0.1.0
