@@ -84,8 +84,12 @@ python3 -m venv venv
 source venv/bin/activate   # macOS/Linux
 # venv\Scripts\activate    # Windows
 
-# Install dependencies
+# Install dependencies. Two files: deepface must be installed without its
+# dependency closure so it does not pull in the full tensorflow and
+# opencv-python wheels on top of the -cpu/-headless ones. See
+# requirements-nodeps.txt for why.
 pip install -r requirements.txt
+pip install --no-deps -r requirements-nodeps.txt
 
 # Configure environment
 cp .env.example .env
@@ -127,13 +131,45 @@ enough for a 512 MB free instance.
 
 | Host | Free? | Notes |
 |---|---|---|
-| **Render** | Yes, 512 MB | `render.yaml` committed. Sleeps when idle |
-| **Fly.io** | No | `fly.toml` committed; guide below |
-| Hugging Face Spaces | No | Docker Spaces require PRO |
+| **Cloud Run** | Yes, within quota | 1 vCPU. [`deploy/cloudrun/`](deploy/cloudrun/README.md) — recommended |
+| **Render** | Yes, 512 MB | `render.yaml` committed. **0.1 CPU**, sleeps after 15 min idle |
+| **Fly.io** | No | `fly.toml` committed; free allowances ended in 2024 |
+| Hugging Face Spaces | No | Docker Spaces require a paid plan |
 | Cloudflare Pages | Yes | Frontend only — Workers cannot run TensorFlow, librosa or ffmpeg |
+
+Cloud Run is the recommendation because CPU, not memory, is what this app is
+short of: emotion inference runs per frame, and Render's free instance provides
+a tenth of a core. Cloud Run's free tier allows **50 hours of connected time a
+month** at 1 vCPU. See [`deploy/cloudrun/README.md`](deploy/cloudrun/README.md)
+for what that depends on.
 
 The container reads `PORT` (default 8080), so it runs unchanged on Fly (8080),
 Spaces (7860) and Cloud Run (injected).
+
+### Cost-shaped behaviour
+
+Two behaviours exist because hosts bill for an open WebSocket as though it were
+a request in flight for its whole life:
+
+- Frames are sent at 1/second while recording and 1/5s otherwise, and **not at
+  all while the browser tab is hidden**. Every frame costs a DeepFace inference.
+- The server closes connections silent for `WS_IDLE_TIMEOUT_SECONDS` (default
+  600; `0` disables). Reconnecting starts a new session, so a reaped session
+  loses its topic and coaching history.
+
+On an always-on host set `WS_IDLE_TIMEOUT_SECONDS=0`.
+
+### Image size
+
+The runtime image installs `tensorflow-cpu` and `opencv-python-headless` instead
+of the default wheels. Measured on x86_64, `tensorflow` unpacks to 1873 MB
+against `tensorflow-cpu`'s 1273 MB — 600 MB on disk, 299 MB in a registry. deepface declares hard
+requirements on the originals, so the Dockerfile installs it with `--no-deps`
+and `backend/requirements.txt` carries its real imports; see
+[`backend/requirements-nodeps.txt`](backend/requirements-nodeps.txt). Because
+pip no longer checks those imports, the build runs
+`backend/scripts/verify_emotion_stack.py` — a real `DeepFace.analyze()` call —
+so a missing import fails the build rather than a user's first frame.
 
 ## Deployment Guide (Fly.io — Single Deploy, Free Tier)
 
@@ -276,7 +312,10 @@ Polly-AI/
 │   ├── tests/
 │   │   ├── unit/                       # Automated pytest suite
 │   │   └── demos/                      # Interactive camera scripts (manual only)
+│   ├── scripts/
+│   │   └── verify_emotion_stack.py     # Build-time check of the trimmed ML install
 │   ├── requirements.txt
+│   ├── requirements-nodeps.txt         # Installed with --no-deps (see the file)
 │   └── requirements-dev.txt
 └── README.md
 ```

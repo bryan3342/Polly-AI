@@ -1,5 +1,6 @@
 import base64
 import logging
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -41,6 +42,13 @@ class EmotionService:
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
+        # Warm-up now runs on a background thread so the server can bind its
+        # port immediately, and frames are analysed on worker threads. Both can
+        # therefore reach the model at once, and DeepFace's model cache is not
+        # thread-safe -- two threads building it concurrently is a real race.
+        # The lock makes whoever gets there second wait for the build instead.
+        self._model_lock = threading.Lock()
+        self._model_ready = False
         logger.info("EmotionService initialized.")
 
     def warm_up(self) -> bool:
@@ -51,7 +59,23 @@ class EmotionService:
         whether the model is ready; a failure here is logged and left to the
         per-frame error handling rather than stopping the server, since every
         other feature still works without it.
+
+        Safe to call from several threads and safe to call repeatedly: the first
+        caller builds the model while the rest wait, and later calls are free. A
+        failed build leaves the service un-warmed so the next frame retries it.
         """
+        if self._model_ready:
+            return True
+
+        with self._model_lock:
+            # Re-checked under the lock: several threads can pass the test above
+            # before any of them acquires it.
+            if self._model_ready:
+                return True
+            return self._build_model()
+
+    def _build_model(self) -> bool:
+        """Build and exercise the model. Caller must hold `_model_lock`."""
         try:
             DeepFace.build_model("Emotion", task="facial_attribute")
 
@@ -60,6 +84,13 @@ class EmotionService:
             # frame paying for the graph trace, the Haar cascade's first run and
             # the JPEG decode path — measured at 130ms, which a user experiences
             # as the app stalling on the very first frame of their session.
+            #
+            # Marked ready *before* the synthetic frame runs: that frame goes
+            # through `analyze_frame`, which calls back into `warm_up`. The flag
+            # is what stops it recursing into a second build (and deadlocking on
+            # this lock, which is not reentrant).
+            self._model_ready = True
+
             blank = np.zeros((64, 64, 3), dtype=np.uint8)
             encoded = cv2.imencode(".jpg", blank)[1].tobytes()
             self.analyze_encoded_frame(
@@ -69,6 +100,10 @@ class EmotionService:
             logger.info("Emotion model warmed up and ready.")
             return True
         except Exception:
+            # Cleared again so the next frame retries rather than trusting a
+            # half-built model. Retrying is cheap: DeepFace caches the model it
+            # did manage to construct, so a second attempt skips that work.
+            self._model_ready = False
             logger.exception("Could not warm up the emotion model; it will load on first use.")
             return False
 
@@ -113,6 +148,11 @@ class EmotionService:
         return self.analyze_frame(frame) or empty_result()
 
     def analyze_frame(self, frame: np.ndarray) -> Optional[Dict]:
+        # A frame can arrive while the background warm-up is still running, or
+        # after it failed. Building here too keeps that from racing: this either
+        # returns immediately or waits for the in-flight build to finish.
+        self.warm_up()
+
         try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))

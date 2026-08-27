@@ -1,0 +1,69 @@
+# Build and deploy the single-container app to Cloud Run.
+#
+# The image is built here rather than by Cloud Build so the deploy consumes no
+# Cloud Build minutes; GitHub Actions minutes are free for public repositories.
+#
+# Authentication uses Workload Identity Federation rather than a service-account
+# key, so there is no long-lived credential in repository secrets. Required
+# secrets: GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT.
+# Enable by setting the repository variable CLOUD_RUN_ENABLED to "true".
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGION: us-central1
+  REPOSITORY: polly
+  SERVICE: polly-ai
+
+jobs:
+  deploy:
+    # Skipped unless deployment is switched on for this repository, so forks and
+    # clones do not fail a red build on every push to main.
+    if: vars.CLOUD_RUN_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    concurrency: deploy-cloudrun
+    permissions:
+      contents: read
+      id-token: write        # required to mint the federated token
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      # linux/amd64 explicitly: Cloud Run is x86_64, and requirements.txt
+      # resolves tensorflow-cpu only on that architecture (it publishes no
+      # aarch64 wheel). An accidentally-arm64 image would fail to start.
+      - name: Build image
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE"
+          docker build --platform linux/amd64 \
+            -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      # The service spec is the source of truth for CPU, memory, concurrency and
+      # scaling — the settings the free tier depends on. Deploying with
+      # `gcloud run deploy` flags instead would silently reset them.
+      - name: Deploy service
+        run: |
+          sed "s/PROJECT_ID/${{ secrets.GCP_PROJECT_ID }}/g" deploy/cloudrun/service.yaml \
+            | gcloud run services replace - --region="$REGION"
+
+      # Re-applied on every deploy: without it each push leaves another ~700 MB
+      # image behind and Artifact Registry storage (0.5 GiB free) starts billing.
+      - name: Enforce image retention
+        run: |
+          gcloud artifacts repositories set-cleanup-policies "$REPOSITORY" \
+            --location="$REGION" --policy=deploy/cloudrun/cleanup-policy.json --quiet
