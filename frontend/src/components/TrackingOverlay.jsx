@@ -5,7 +5,7 @@ import { coverTransform } from './trackingProjection';
  * Draws what is being tracked, over the live video, at the video's own rate.
  *
  * Two things keep this immediate. It reads tracking from a ref rather than from
- * props, so new positions never go through React — nothing re-renders, at any
+ * props, so new positions never go through React, nothing re-renders, at any
  * frame rate. And it runs its own animation loop, so it redraws in step with
  * the display rather than whenever a message happens to arrive.
  *

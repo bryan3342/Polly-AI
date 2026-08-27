@@ -10,14 +10,14 @@ function fmtDuration(s) {
 
 /* Renders a number with fixed digits, or an em dash when the backend omitted it. */
 function num(v, digits = 0) {
-    return typeof v === 'number' && isFinite(v) ? v.toFixed(digits) : '—';
+    return typeof v === 'number' && isFinite(v) ? v.toFixed(digits) : ', ';
 }
 
 /**
  * Post-session report card rendered inline in the chat flow.
  * Consumes the `analysis_complete` results object from the backend
  * (transcript, speech/voice analysis, emotion summary, AI feedback).
- * Every field is optional — mock STT or a failed analysis may omit any of them.
+ * Every field is optional, mock STT or a failed analysis may omit any of them.
  */
 export default function ReportCard({ results }) {
     if (!results) return null;
@@ -30,10 +30,10 @@ export default function ReportCard({ results }) {
 
     // The backend omits any component it could not measure rather than
     // substituting a plausible default, so explain the blanks instead of
-    // leaving the reader to guess why a stat reads "—".
+    // leaving the reader to guess why a stat reads ", ".
     const notes = [];
     if (results.transcript_is_mock) {
-        // No transcript means no pace/word/filler stats at all — the backend
+        // No transcript means no pace/word/filler stats at all, the backend
         // returns nothing rather than deriving them from placeholder text.
         notes.push(
             results.transcript_error
@@ -57,7 +57,7 @@ export default function ReportCard({ results }) {
             unit: typeof speech.filler_percentage === 'number' ? `${num(speech.filler_percentage, 1)}%` : null,
         },
         { label: 'Confidence', value: num(voice.confidence_score), unit: '/100' },
-        { label: 'Emotion', value: emotion.dominant ?? '—', cap: true },
+        { label: 'Emotion', value: emotion.dominant ?? ', ', cap: true },
     ];
 
     return (
@@ -80,7 +80,7 @@ export default function ReportCard({ results }) {
                         <div className="label">{s.label}</div>
                         <div className={`value${s.cap ? ' cap' : ''}`}>
                             {s.value}
-                            {s.unit && s.value !== '—' && <span className="unit"> {s.unit}</span>}
+                            {s.unit && s.value !== ', ' && <span className="unit"> {s.unit}</span>}
                         </div>
                     </div>
                 ))}

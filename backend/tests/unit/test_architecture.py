@@ -7,7 +7,7 @@ database driver, the Gemini SDK). Those are wired in exactly one place,
 
 This was not always true. The transport layer used to construct its own
 services, so importing it pulled in TensorFlow, OpenCV, librosa and the Gemini
-SDK — which is why its tests had to inject fake modules into `sys.modules`
+SDK, which is why its tests had to inject fake modules into `sys.modules`
 before importing anything.
 
 These run in a fresh interpreter per check, because once any test has imported
@@ -93,6 +93,6 @@ class TestDependencyRule:
             pytest.skip("ML stack not installed in this environment")
 
         assert loaded, (
-            "app.container pulled in no heavy dependencies — the wiring has "
+            "app.container pulled in no heavy dependencies: the wiring has "
             "moved somewhere else."
         )

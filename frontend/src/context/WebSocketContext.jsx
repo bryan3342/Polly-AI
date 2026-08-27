@@ -37,13 +37,13 @@ const KEEPALIVE_MS = 45000;
 // error or trigger the reconnect backoff.
 const WS_CLOSE_IDLE = 4000;
 
-// Shown when the socket never opened at all — almost always the analysis
+// Shown when the socket never opened at all, almost always the analysis
 // backend not running, or a static-only deployment with no VITE_WS_URL set.
 // Says which half is missing rather than reporting a generic failure, because
 // the camera and the rest of the interface are working fine at this point.
 const UNREACHABLE =
     "Can't reach the analysis server, so coaching and scoring are unavailable. "
-    + 'The camera still works. Retrying…';
+    + 'The camera still works. Retrying...';
 
 export function WebSocketProvider({ children }) {
     const [connected, setConnected]     = useState(false);
@@ -132,12 +132,12 @@ export function WebSocketProvider({ children }) {
             // would just wake the server back up and defeat the timeout.
             if (e.code === WS_CLOSE_IDLE) { setError(null); return; }
             if (e.wasClean) return;
-            setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
+            setError(everConnected.current ? 'Lost connection. Reconnecting...' : UNREACHABLE);
             reco.current = setTimeout(connect, 3000);
         };
         sock.onerror = () => {
             if (!isCurrent()) return;
-            setError(everConnected.current ? 'Lost connection. Reconnecting…' : UNREACHABLE);
+            setError(everConnected.current ? 'Lost connection. Reconnecting...' : UNREACHABLE);
             sock.close();
         };
     }, []);
@@ -170,7 +170,7 @@ export function WebSocketProvider({ children }) {
             // instead of finding this one still CONNECTING and returning early.
             // That early return left the app with a socket already scheduled to
             // close, and a clean close does not trigger the reconnect path -- so
-            // it sat on "Connecting to server…" indefinitely.
+            // it sat on "Connecting to server..." indefinitely.
             ws.current = null;
             if (!sock) return;
             // Close whether OPEN or still CONNECTING; the old check skipped
@@ -205,7 +205,7 @@ export function WebSocketProvider({ children }) {
             setChat(p => [...p, { role: 'user', content: txt }]);
             return true;
         }
-        setError('Not connected — your message was not sent.');
+        setError('Not connected, your message was not sent.');
         return false;
     }, [send]);
     const startRecording = useCallback(() => send({ type: 'start_recording' }), [send]);

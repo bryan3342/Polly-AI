@@ -1,8 +1,8 @@
 /**
  * Minimal Markdown renderer for coach messages.
  *
- * The coaching model replies in Markdown — "**Record**", "### Strengths",
- * bullet lists — and the UI rendered it as literal text, so users read
+ * The coaching model replies in Markdown, "**Record**", "### Strengths",
+ * bullet lists, and the UI rendered it as literal text, so users read
  * asterisks and hashes instead of emphasis and structure.
  *
  * This returns React elements rather than an HTML string, so model output is
@@ -12,7 +12,7 @@
  * this needs: the grammar below covers what the model actually emits, in a file
  * small enough to audit.
  *
- * Anything unrecognised falls through as plain text — never as markup.
+ * Anything unrecognised falls through as plain text, never as markup.
  */
 
 /* Inline: **bold**, *italic*, `code`. Split on all three at once so the parts

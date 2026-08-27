@@ -14,7 +14,7 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
     const cbRef      = useRef(onAudioReady);
     const [ready, setReady]      = useState(false);
     const [camErr, setCamErr]    = useState(null);
-    // Presence only — the coordinates never enter React state, or every frame
+    // Presence only: the coordinates never enter React state, or every frame
     // would re-render the app. See useLiveTracking.
     const [presence, setPresence] = useState({ face: false, hands: 0 });
     cbRef.current = onAudioReady;
@@ -66,7 +66,7 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             // Downscale before encoding. toDataURL runs synchronously on the
             // main thread and its cost scales with pixel count, so encoding the
             // full 720p frame fifteen times a second was the largest single
-            // source of the delay — before a byte had even left the browser.
+            // source of the delay, before a byte had even left the browser.
             // Analysis gains nothing from those pixels; the display keeps them.
             const target = capture.captureWidth || v.videoWidth;
             const scale = v.videoWidth > target ? target / v.videoWidth : 1;
@@ -133,7 +133,7 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
             {/* What the server is measuring, drawn over the video it measured.
                 Its coordinates come back from the analysis itself, so an
                 indicator appearing is evidence the frame was received and
-                understood — not a local guess about where a face might be. */}
+                understood, not a local guess about where a face might be. */}
             <TrackingOverlay trackingRef={resultRef} videoRef={videoRef}
                              active={cameraOn} onPresence={onPresence} />
 

@@ -84,7 +84,7 @@ def test_frame_analysis_does_not_block_the_event_loop():
     expected = BLOCKING_SECONDS / TICK_SECONDS
     assert ticks > expected * 0.4, (
         f"event loop only ticked {ticks} times during a "
-        f"{BLOCKING_SECONDS}s analysis — it is being blocked"
+        f"{BLOCKING_SECONDS}s analysis: it is being blocked"
     )
 
 
@@ -92,7 +92,7 @@ def test_one_session_analysis_does_not_stall_another_session():
     """The user-visible symptom: everyone else's video freezes.
 
     Asserts on *when* the other session finished, not merely that it eventually
-    did. A blocked loop still completes the other work — just not until the
+    did. A blocked loop still completes the other work, just not until the
     inference is over, which is exactly the freeze being fixed.
     """
     async def scenario():
@@ -117,7 +117,7 @@ def test_one_session_analysis_does_not_stall_another_session():
     # Concurrent: finishes in ~0.1s. Blocked: not until the 0.3s analysis ends.
     assert elapsed < BLOCKING_SECONDS, (
         f"the second session did not finish until {elapsed:.2f}s, after the "
-        f"{BLOCKING_SECONDS}s analysis — it was stalled behind it"
+        f"{BLOCKING_SECONDS}s analysis: it was stalled behind it"
     )
 
 

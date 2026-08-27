@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Polly AI — AI Debate Coach</title>
+<title>Polly AI | AI Debate Coach</title>
 <link rel="icon" type="image/svg+xml" href="/polly-mark.svg" />
 <meta name="description" content="Polly AI is a debate coach that analyses your facial expressions, hand gestures, vocal tone and speech patterns in real time, then tells you how to argue better." />
 <style>
@@ -68,7 +68,7 @@
 
     /* ── video ──────────────────────────────────────────────── */
     /* A flex column so the frame and its caption stay together, and the frame
-       itself centres whatever is inside it — the placeholder now, the demo
+       itself centres whatever is inside it, the placeholder now, the demo
        once it is dropped in. */
     .demo {
         display: flex;
@@ -125,7 +125,7 @@
     </p>
     <p class="sub">
         Record a practice argument and Polly analyses your face, hands, voice and words
-        at the same time — tracking expression and gesture live in the browser, and
+        at the same time, tracking expression and gesture live in the browser, and
         scoring your delivery when you stop. Nothing is uploaded; it runs on your machine.
     </p>
 
@@ -134,7 +134,7 @@
     <section class="demo">
         <div class="frame" id="frame">
             <div class="placeholder">
-                Demo video goes here — add <code>demo.mp4</code> to <code>frontend/public/</code>
+                Demo video goes here, add <code>demo.mp4</code> to <code>frontend/public/</code>
             </div>
         </div>
         <div class="caption">A recorded walkthrough of a full session.</div>
@@ -142,21 +142,6 @@
 
 </div>
 
-<script>
-    // Swap the placeholder for the real thing only once the file is known to
-    // exist, so the page never shows a broken player while the demo is pending.
-    //
-    // The content type is checked, not just the status: a dev server with an
-    // SPA fallback answers a missing file with 200 and an HTML body, which
-    // would otherwise pass for a video and leave an empty player on the page.
-    fetch('/demo.mp4', { method: 'HEAD' })
-        .then((response) => {
-            const type = response.headers.get('content-type') || '';
-            if (!response.ok || !type.startsWith('video/')) return;
-            document.getElementById('frame').innerHTML =
-                '<video controls playsinline preload="metadata" src="/demo.mp4"></video>';
-        })
-        .catch(() => { /* no demo yet; the placeholder already says so */ });
-</script>
+<script src="/landing.js"></script>
 </body>
 </html>

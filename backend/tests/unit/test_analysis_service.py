@@ -1,8 +1,7 @@
 """The post-recording analysis sequence.
 
 This logic used to live inline in the WebSocket handler, where exercising it
-meant standing up a connection. Extracted, it can be driven with plain fakes —
-which is the point of the extraction, and why this file needs no stubs, no
+meant standing up a connection. Extracted, it can be driven with plain fakes, which is the point of the extraction, and why this file needs no stubs, no
 event-loop scaffolding and no ML stack.
 """
 

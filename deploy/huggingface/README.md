@@ -14,7 +14,7 @@ short_description: AI debate coach - real-time facial, vocal and speech analysis
 An AI debate coach. Record a practice argument and Polly analyses your facial
 expressions, vocal tone and speech patterns, then returns a scored report.
 
-Grant camera and microphone access when prompted — analysis runs on the live
+Grant camera and microphone access when prompted; analysis runs on the live
 capture.
 
 **Components that cannot be measured are omitted rather than defaulted**, so a

@@ -2,7 +2,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
-/* ── App shell — CSS Grid locks everything to viewport ── */
+/* ── App shell, CSS Grid locks everything to viewport ── */
 .app {
     display: grid;
     /* Row 1 absorbs the error banner and collapses to 0 when there is none.
@@ -59,7 +59,7 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
 .status-dot.on  { background: #10b981; }
 .status-dot.off { background: #ef4444; }
 
-/* ── Main panel — two-column grid ─────────────────── */
+/* ── Main panel, two-column grid ─────────────────── */
 .main {
     grid-row: 3;
     display: grid;
@@ -545,7 +545,7 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
     pointer-events: none;
     z-index: 3;
     /* The video is mirrored so the speaker sees themselves as in a mirror, but
-       the frame sent for analysis is drawn from the raw, unmirrored video — so
+       the frame sent for analysis is drawn from the raw, unmirrored video, so
        coordinates come back in unmirrored space. Carrying the same flip here
        keeps the two in register; without it every indicator lands on the
        opposite side of the body from the part it is tracking. */

@@ -4,9 +4,8 @@ These scripts open a camera window and wait for keyboard input. They are **not**
 automated tests, and `pytest.ini` restricts collection to `tests/unit`, so they are
 never picked up in CI.
 
-They previously lived under names that pytest *did* collect — `tests/test_camera_*.py`
-and, in one case, `app/camera/test_camera.py` inside the shipped application package —
-where a CI run would have blocked waiting for a keypress.
+They previously lived under names that pytest *did* collect, `tests/test_camera_*.py`
+and, in one case, `app/camera/test_camera.py` inside the shipped application package, where a CI run would have blocked waiting for a keypress.
 
 Run them by hand when validating camera behaviour on a new machine:
 
