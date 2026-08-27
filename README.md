@@ -194,6 +194,11 @@ cd frontend
 # Install dependencies
 npm install
 
+# Stage MediaPipe's WASM runtime and models. Face and hand tracking runs in
+# the browser, against the displayed video, so the runtime has to be served
+# over HTTP; none of it is committed.
+./scripts/stage-mediapipe.sh
+
 # Start dev server
 npm run dev
 ```

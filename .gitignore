@@ -41,3 +41,8 @@ backend/.deepface/
 
 # MediaPipe hand landmarker, fetched by scripts/fetch_models.py (~7.5 MB).
 backend/.models/
+
+# MediaPipe WASM runtime and models, staged into the frontend by
+# scripts/stage-mediapipe.sh. ~30 MB copied from node_modules and downloaded
+# from Google; nothing here is a source artifact.
+frontend/public/mediapipe/
