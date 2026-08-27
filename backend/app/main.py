@@ -91,6 +91,11 @@ async def _handle_message(session_id: str, message: dict) -> None:
         await manager.process_chat_message(session_id, message.get("message"))
     elif message_type == "request_new_topic":
         await manager.assign_new_topic(session_id)
+    elif message_type == "ping":
+        # Deliberately does nothing. Its only job is to have arrived: receiving
+        # it resets the idle timer, which is how a user sitting on the page with
+        # the camera off avoids having their session reaped mid-read.
+        pass
     else:
         logger.warning("Unknown message type %r from session %s", message_type, session_id)
         await manager.send_message(session_id, {

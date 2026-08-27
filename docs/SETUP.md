@@ -87,23 +87,27 @@ possible at all.
 
 | Host | Free? | Notes |
 |---|---|---|
-| **Render** | Yes, 512 MB | Fits. Sleeps after ~15 min idle; first request after that is a cold start. `render.yaml` is committed. |
-| **Fly.io** | No | Needs a card. 1 GB machine; `fly.toml` is committed. |
+| **Cloud Run** | Yes, within quota | **The deployment target.** 1 vCPU, scales to zero. See [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md). |
+| Fly.io | No | Needs a card. 1 GB machine; `fly.toml` is retained. |
+| Render | Yes, 512 MB | **Dropped.** 0.1 CPU is too little for per-frame inference. |
 | **Hugging Face Spaces** | **No — see below** | Docker Spaces require PRO. |
-| Cloudflare Pages | Yes | **Frontend only.** Workers cannot run TensorFlow, librosa or ffmpeg. |
+| Cloudflare Pages | Yes | **Frontend only**, and only if egress ever becomes a limit. |
 
 Whatever the host, the container reads `PORT` and needs no other configuration.
 
-#### Render
+#### Cloud Run
 
-```bash
-# Blueprint deploy: New → Blueprint → point at this repository.
-# render.yaml provisions a free Docker web service with a health check.
-```
+Memory was never the constraint here — CPU is. Emotion inference runs once per
+video frame, which a fraction of a core cannot keep up with, and Cloud Run's
+free tier provides a full vCPU. It also puts compute in the same project as the
+Gemini API the app already depends on.
 
-Add `GEMINI_API_KEY` in the dashboard for transcription and coaching. Without
-it the camera, face detection, emotion tracking and voice measurement still
-work.
+Full walkthrough, including the free-tier arithmetic and the Artifact Registry
+cleanup policy: [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md).
+
+Add `GEMINI_API_KEY` as a Secret Manager secret for transcription and coaching.
+Without it the camera, face detection, emotion tracking and voice measurement
+still work.
 
 #### Hugging Face Spaces — requires PRO
 
@@ -166,8 +170,10 @@ npx wrangler login
 npx wrangler pages deploy dist --project-name polly-ai
 ```
 
-Backend hosts that can actually run it: Fly.io (`fly.toml` is committed),
-Render, Railway, Hugging Face Spaces, or any Docker host with ~2 GB of RAM.
+Only needed if the SPA is ever split off from the backend; by default the
+Cloud Run container serves it from the same origin. Backend hosts that can
+actually run the analysis: Cloud Run (the target), Fly.io, Railway, or any
+Docker host with a full core and ~1 GB of RAM.
 
 ## Secrets & environment
 

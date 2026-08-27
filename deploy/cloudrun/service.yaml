@@ -67,15 +67,15 @@ spec:
               cpu: "1"
               memory: 1Gi
           env:
-            # Close connections that have been silent for 10 minutes so an
-            # abandoned tab stops billing and the instance can scale to zero.
+            # Close connections silent for two minutes, so an abandoned tab
+            # stops billing and the instance can scale back to zero. The client
+            # sends a keepalive whenever its tab is visible, so this reaps
+            # abandoned tabs rather than idle users.
             - name: WS_IDLE_TIMEOUT_SECONDS
-              value: "600"
-            # The frontend is served from Cloudflare Pages, so this origin has
-            # to be allowed explicitly. Serving the SPA from here instead would
-            # spend the 1 GiB egress allowance on static assets.
-            - name: CORS_ORIGINS
-              value: https://polly-ai.pages.dev
+              value: "120"
+            # No CORS_ORIGINS: this service serves the built SPA itself, so the
+            # browser talks to a single origin and never makes a cross-origin
+            # request. Set it only if the frontend is moved to its own host.
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
