@@ -61,19 +61,25 @@ class Config:
     # laptop want very different numbers, and the client should not have to be
     # rebuilt to move between them.
     #
-    # The defaults target a developer machine, which is where this now runs.
-    # Measured per frame on an Apple M4: face detection and emotion
-    # classification together cost far less than 100 ms, so 10 frames a second
-    # leaves real headroom -- and emotion is a signal that moves at the speed of
-    # a face, so sampling it once a second throws most of it away.
+    # These no longer set how fast tracking *looks*. The face box and hand
+    # skeleton are tracked in the browser now, against the displayed video, and
+    # redraw with the display -- a round trip could not put an indicator on
+    # screen less than ~90 ms after the movement it described, which reads as
+    # lag at any server speed.
     #
-    # Hosted deployments override both; see render.yaml, where a tenth of a core
-    # measured ~600 ms per frame and 1 fps is the ceiling.
-    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 66))
+    # What still comes here is the DeepFace emotion classification, which has no
+    # browser equivalent and which the score depends on. Emotion moves at the
+    # speed of an expression rather than a hand, so it is sampled far more
+    # slowly than it was when the overlay was waiting on it: five frames a
+    # second still gives ~600 samples across a two-minute recording, at a third
+    # of the CPU.
+    #
+    # Hosted deployments override both; see render.yaml.
+    FRAME_INTERVAL_MS = int(os.getenv("FRAME_INTERVAL_MS", 200))
 
     # The slower rate used when not recording, feeding only the live readout
     # beside the video. Still frequent enough to look responsive.
-    IDLE_FRAME_INTERVAL_MS = int(os.getenv("IDLE_FRAME_INTERVAL_MS", 500))
+    IDLE_FRAME_INTERVAL_MS = int(os.getenv("IDLE_FRAME_INTERVAL_MS", 1000))
 
     # JPEG quality for captured frames, 0-1. The classifier sees these pixels,
     # so this is an input-fidelity setting, not just bandwidth.

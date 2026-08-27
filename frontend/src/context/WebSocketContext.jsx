@@ -59,8 +59,6 @@ export function WebSocketProvider({ children }) {
         idleFrameMs: DEFAULT_IDLE_FRAME_MS,
         jpegQuality: DEFAULT_JPEG_QUALITY,
         captureWidth: DEFAULT_CAPTURE_WIDTH,
-        // Fixed by the hand model, so it arrives once rather than per frame.
-        handConnections: [],
     });
     // Distinguishes "never reached the server" from "was connected and dropped".
     // They need different explanations: the first is usually a backend that is
@@ -108,7 +106,6 @@ export function WebSocketProvider({ children }) {
                         idleFrameMs: m.idle_frame_interval_ms ?? DEFAULT_IDLE_FRAME_MS,
                         jpegQuality: m.jpeg_quality ?? DEFAULT_JPEG_QUALITY,
                         captureWidth: m.capture_width ?? DEFAULT_CAPTURE_WIDTH,
-                        handConnections: m.hand_connections ?? [],
                     }); break;
                 case 'emotion_update':    setEmotion(m.data); break;
                 case 'topic_assigned':    setTopic(m.topic); break;

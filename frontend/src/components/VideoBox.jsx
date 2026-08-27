@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useWS } from '../context/wsContext';
 import { FaVideoSlash } from 'react-icons/fa';
 import TrackingOverlay from './TrackingOverlay';
+import { useLiveTracking } from '../hooks/useLiveTracking';
 
 export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady }) {
     const { sendFrame, emotion, connected, capture } = useWS();
@@ -13,7 +14,16 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
     const cbRef      = useRef(onAudioReady);
     const [ready, setReady]      = useState(false);
     const [camErr, setCamErr]    = useState(null);
+    // Presence only — the coordinates never enter React state, or every frame
+    // would re-render the app. See useLiveTracking.
+    const [presence, setPresence] = useState({ face: false, hands: 0 });
     cbRef.current = onAudioReady;
+
+    // Tracking runs here, against the displayed video, rather than on the
+    // server: a per-frame round trip could not put an indicator on screen less
+    // than ~90 ms after the movement it described.
+    const { resultRef, status: trackStatus } = useLiveTracking(videoRef, ready && cameraOn);
+    const onPresence = useCallback((p) => setPresence(p), []);
 
     /* ── get stream ──────────────────────────────── */
     useEffect(() => {
@@ -98,8 +108,7 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
 
     const dom = emotion?.dominant_emotion;
     const conf = emotion?.confidence;
-    const handCount = emotion?.hand_count ?? 0;
-    const handLabel = handCount === 2 ? 'Hands' : handCount === 1 ? '1 hand' : 'Hands';
+    const handLabel = presence.hands === 1 ? '1 hand' : 'Hands';
 
     return (
         <div className={`video-panel ${!cameraOn ? 'camera-off' : ''}`}>
@@ -125,8 +134,8 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
                 Its coordinates come back from the analysis itself, so an
                 indicator appearing is evidence the frame was received and
                 understood — not a local guess about where a face might be. */}
-            <TrackingOverlay tracking={emotion} connections={capture.handConnections}
-                             active={cameraOn && connected} />
+            <TrackingOverlay trackingRef={resultRef} videoRef={videoRef}
+                             active={cameraOn} onPresence={onPresence} />
 
             {/* REC badge */}
             {isRecording && (
@@ -149,16 +158,26 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
                 </div>
             )}
 
-            {/* Tracking status. States what is being measured right now, so an
-                absent indicator is distinguishable from a broken one. */}
-            {cameraOn && connected && (
+            {/* Tracking status, top right. States what is being tracked right
+                now, so an absent indicator is distinguishable from a broken
+                one. Driven by the overlay's own loop, which reports only on a
+                change of state rather than every frame. */}
+            {cameraOn && (
                 <div className="video-overlay track-status">
-                    <span className={emotion?.face_detected ? 'on face' : 'off'}>
-                        <i /> Face
-                    </span>
-                    <span className={emotion?.hands_detected ? 'on hands' : 'off'}>
-                        <i /> {handLabel}
-                    </span>
+                    {trackStatus === 'unavailable' ? (
+                        <span className="off" title="Tracking could not start; everything else still works">
+                            <i /> Tracking off
+                        </span>
+                    ) : (
+                        <>
+                            <span className={presence.face ? 'on face' : 'off'}>
+                                <i /> Face
+                            </span>
+                            <span className={presence.hands ? 'on hands' : 'off'}>
+                                <i /> {handLabel}
+                            </span>
+                        </>
+                    )}
                 </div>
             )}
         </div>
