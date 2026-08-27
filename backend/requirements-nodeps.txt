@@ -22,3 +22,14 @@
 deepface>=0.0.79,<0.1.0
 mtcnn>=0.1.0,<2.0.0
 retina-face>=0.0.14,<0.1.0
+
+# tf-keras is here for exactly the same reason, and it is easy to miss: it
+# declares `tensorflow<2.22,>=2.21`, so installing it normally pulls the full
+# x86_64 GPU wheel (1873 MB) back in *on top of* tensorflow-cpu (1273 MB) --
+# leaving the image larger than it was before any of this. tensorflow-cpu
+# satisfies it in every way that matters, and tensorflow is tf-keras's only
+# dependency, so --no-deps loses nothing.
+#
+# This is invisible on aarch64, where plain `tensorflow` is what gets installed
+# anyway. It only appears on the architecture Cloud Run actually runs.
+tf-keras>=2.16.0,<3.0.0
