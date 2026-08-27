@@ -18,13 +18,58 @@ Run by the Dockerfile. A non-zero exit fails the build, which is the point.
 """
 
 import sys
+from importlib.metadata import PackageNotFoundError, distribution
 
 import cv2
 import numpy as np
 from deepface import DeepFace
 
 
+def _installed(name: str) -> bool:
+    try:
+        distribution(name)
+        return True
+    except PackageNotFoundError:
+        return False
+
+
+def check_no_duplicate_wheels() -> int:
+    """Fail if a substituted wheel got reinstalled alongside its replacement.
+
+    Several packages in this tree declare hard requirements on `tensorflow` and
+    `opencv-python` -- deepface does, and so does tf-keras, which is the easy one
+    to miss. Installing any of them normally pulls the originals back in *on top
+    of* the -cpu/-headless variants, leaving the image larger than it was before
+    the substitution rather than smaller. Nothing fails at runtime when that
+    happens; the image just quietly grows by ~1.8 GB.
+
+    Worth asserting here specifically because it is architecture-dependent: on
+    aarch64 plain `tensorflow` is the correct package, so this class of mistake
+    is invisible until the image is built for the x86_64 that Cloud Run runs.
+    """
+    problems = []
+
+    if _installed("tensorflow") and _installed("tensorflow-cpu"):
+        problems.append(
+            "both `tensorflow` and `tensorflow-cpu` are installed -- something "
+            "depends on `tensorflow` and was not installed with --no-deps"
+        )
+
+    if _installed("opencv-python"):
+        problems.append(
+            "`opencv-python` is installed alongside opencv-python-headless -- "
+            "same cause, see requirements-nodeps.txt"
+        )
+
+    for problem in problems:
+        print(f"FAIL: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
 def main() -> int:
+    if check_no_duplicate_wheels() != 0:
+        return 1
+
     # Headless OpenCV must work with no libGL/X11 present; the Dockerfile no
     # longer installs them.
     cascade = cv2.CascadeClassifier(
