@@ -3,65 +3,61 @@
 
   <!--
     Flat vector macaw, facing left, perched on a bare branch.
-    Palette, in the order the eye meets it:
-      #E07A3E  orange    body, wing, tail and crown
-      #C96A33  deep      feather divisions on the wing
-      #EFCB92  wheat     breast patch
-      #FFFFFF  white     face mask
-      #2E3A4E  navy      eye and upper beak
-      #6B7280  grey      lower beak, legs and branch
 
-    Drawn back to front: branch, legs, tail, body, breast, wing, head,
-    face mask, beak, eye. Each shape sits on top of the one before it, so
-    the outline never needs a stroke to separate them.
+      #E07A3E / #D97236  orange   body, wing, tail and crown
+      #EFCB92            wheat    breast patch
+      #FFFFFF            white    face mask
+      #20293A / #333B4A  navy     eye and upper beak
+      #7A8290            grey     lower beak, legs and branch
+
+    Drawn back to front (branch, tail, legs, body, breast, wing, head, mask,
+    beak, eye) so each shape covers the one before it and no outline stroke is
+    needed to separate them.
+
+    Kept identical to src/components/PollyMark.jsx, which is the same artwork as
+    a component for the header. Change one, change the other.
   -->
 
   <g fill="none" fill-rule="evenodd">
+    <path d="M28 174 C70 168 122 158 178 149" stroke="#7A8290" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M110 163 L134 153" stroke="#7A8290" stroke-width="4" stroke-linecap="round"/>
 
-    <!-- Branch -->
-    <path d="M34 176 C70 162 112 154 168 152"
-          stroke="#6B7280" stroke-width="7" stroke-linecap="round"/>
-    <path d="M104 158 L124 146" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
+    <!-- tail -->
+    <path d="M116 130 C130 150 140 172 137 191 C126 177 114 154 106 136 Z" fill="#D97236"/>
+    <path d="M128 124 C146 144 160 167 160 189 C144 173 128 150 118 130 Z" fill="#E07A3E"/>
+    <path d="M139 116 C159 132 174 153 178 173 C160 161 143 141 131 124 Z" fill="#D97236"/>
 
-    <!-- Tail: three feathers, longest in the middle -->
-    <path d="M112 120 C126 142 136 166 134 190 C122 174 110 148 102 128 Z" fill="#E07A3E"/>
-    <path d="M124 116 C142 138 156 164 158 190 C142 174 126 148 116 124 Z" fill="#E07A3E"/>
-    <path d="M134 110 C154 128 170 150 176 174 C158 162 140 140 128 120 Z" fill="#E07A3E"/>
+    <!-- legs -->
+    <path d="M89 138 L89 160" stroke="#7A8290" stroke-width="7" stroke-linecap="round"/>
+    <path d="M104 138 L104 157" stroke="#7A8290" stroke-width="7" stroke-linecap="round"/>
+    <path d="M82 162 L95 158 M99 159 L112 154" stroke="#7A8290" stroke-width="5" stroke-linecap="round"/>
 
-    <!-- Legs, gripping the branch -->
-    <path d="M86 132 L86 158" stroke="#6B7280" stroke-width="9" stroke-linecap="round"/>
-    <path d="M102 132 L102 154" stroke="#6B7280" stroke-width="9" stroke-linecap="round"/>
-    <path d="M78 160 L92 155 M96 156 L110 151"
-          stroke="#6B7280" stroke-width="6" stroke-linecap="round"/>
+    <!-- body -->
+    <ellipse cx="101" cy="102" rx="43" ry="50" fill="#E07A3E"/>
 
-    <!-- Body -->
-    <path d="M92 46 C124 46 144 74 144 106 C144 132 126 150 100 150
-             C72 150 56 128 56 98 C56 68 68 46 92 46 Z" fill="#E07A3E"/>
+    <!-- belly patch, low and forward -->
+    <ellipse cx="82" cy="122" rx="20" ry="26" fill="#EFCB92"/>
 
-    <!-- Breast patch, low and to the left -->
-    <path d="M74 96 C86 96 93 108 93 122 C93 138 85 148 73 148
-             C62 148 56 132 56 116 C56 102 63 96 74 96 Z" fill="#EFCB92"/>
+    <!-- wing -->
+    <path d="M110 64 C138 70 150 96 147 120 C144 142 128 152 112 147
+             C98 142 95 118 97 98 C99 78 103 64 110 64 Z" fill="#E07A3E"/>
+    <path d="M114 78 C133 85 142 102 141 121 M108 94 C125 101 133 116 132 131"
+          stroke="#C96A33" stroke-width="2.4" stroke-linecap="round" opacity=".42"/>
 
-    <!-- Wing -->
-    <path d="M108 70 C132 70 146 90 146 114 C146 136 130 150 110 150
-             C92 150 82 132 82 110 C82 86 94 70 108 70 Z" fill="#E07A3E"/>
-    <path d="M110 80 C130 82 140 98 140 116 M104 90 C122 94 130 108 130 124"
-          stroke="#C96A33" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+    <!-- head: smaller relative to the body, crown left orange -->
+    <circle cx="90" cy="60" r="32" fill="#E07A3E"/>
 
-    <!-- Head, with the crown left orange above the mask -->
-    <circle cx="90" cy="56" r="32" fill="#E07A3E"/>
+    <!-- white face patch: a tighter mask around the eye, reaching the beak -->
+    <path d="M78 30 C60 34 52 48 52 64 C52 80 62 90 78 90
+             C92 90 100 78 100 62 C100 44 90 30 78 30 Z" fill="#FFFFFF"/>
 
-    <!-- Face mask: covers the front of the head, crown stays orange -->
-    <path d="M80 28 C60 30 50 44 50 62 C50 80 62 90 80 90
-             C94 90 102 76 102 60 C102 42 94 28 80 28 Z" fill="#FFFFFF"/>
+    <!-- beak -->
+    <path d="M60 38 C38 40 26 52 26 66 C26 80 40 88 58 86
+             C46 76 44 52 60 38 Z" fill="#333B4A"/>
+    <path d="M46 72 C36 76 33 83 37 88 C46 93 58 90 62 82 Z" fill="#7A8290"/>
 
-    <!-- Beak: hooked upper mandible, and the lighter lower one beneath -->
-    <path d="M62 32 C40 32 24 46 24 62 C24 78 40 88 60 86
-             C48 76 44 48 62 32 Z" fill="#2E3A4E"/>
-    <path d="M48 70 C36 74 32 82 36 88 C46 94 60 90 64 80 Z" fill="#6B7280"/>
-
-    <!-- Eye -->
-    <circle cx="83" cy="56" r="14" fill="#2E3A4E"/>
-    <circle cx="88" cy="50" r="4.8" fill="#FFFFFF"/>
+    <!-- eye, centred in the white -->
+    <circle cx="79" cy="60" r="14" fill="#20293A"/>
+    <circle cx="84" cy="54" r="4.6" fill="#FFFFFF"/>
   </g>
 </svg>
