@@ -157,15 +157,28 @@ class EmotionService:
 
         return self.analyze_frame(frame) or empty_result()
 
-    def detect_faces(self, frame: np.ndarray) -> List[List[int]]:
-        """Locate faces, searching a downscaled copy for speed.
+    def detect_faces(self, frame: np.ndarray,
+                     search_width: Optional[int] = None) -> List[List[int]]:
+        """Locate faces, optionally searching a downscaled copy for speed.
 
-        Returns boxes in the *original* frame's coordinates, so callers never
-        see the downscaling. Kept separate from classification so the geometry
-        is unit-testable without the ML stack.
+        `search_width` of 0 (the default configuration) searches the frame as
+        captured, which is what a machine with CPU to spare should do: detection
+        accuracy is the thing this app is for, and motion blur already costs it
+        enough without throwing pixels away too. A fractional-CPU host sets a
+        width; see Config.DETECT_WIDTH for the measurements.
+
+        Returns boxes in the *original* frame's coordinates either way, so
+        callers never see the downscaling. Kept separate from classification so
+        the geometry is unit-testable without the ML stack.
         """
+        if search_width is None:
+            search_width = DETECT_WIDTH
+
         height, width = frame.shape[:2]
-        scale = DETECT_WIDTH / width if width > DETECT_WIDTH else 1.0
+        # `search_width <= 0` disables downscaling entirely. Guarding it here
+        # rather than at the call site keeps a zero from becoming a zero-sized
+        # resize, which OpenCV raises on.
+        scale = search_width / width if 0 < search_width < width else 1.0
 
         if scale < 1.0:
             search = cv2.resize(

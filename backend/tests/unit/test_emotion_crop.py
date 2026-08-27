@@ -280,11 +280,31 @@ class TestDetectionDownscaling:
         service.face_cascade = _RecordingCascade(boxes)
         return service
 
-    def test_the_search_runs_on_a_downscaled_copy(self):
+    def test_full_resolution_is_searched_by_default(self):
+        """The default is no downscaling: accuracy is what this app is for, and
+        a machine with CPU to spare has nothing to buy by trading it away."""
         service = self._service([])
-        service.detect_faces(_frame(height=480, width=640))
+        service.detect_faces(_frame(height=720, width=1280))
 
-        assert service.face_cascade.searched_shape == (240, DETECT_WIDTH), (
+        assert service.face_cascade.searched_shape == (720, 1280), (
+            "the frame should be searched as captured unless a width is set"
+        )
+
+    def test_a_width_of_zero_does_not_produce_an_empty_image(self):
+        """0 means 'do not downscale'. Treated as a scale factor it would be a
+        zero-sized resize, which OpenCV raises on."""
+        service = self._service([(10, 10, 20, 20)])
+
+        boxes = service.detect_faces(_frame(height=480, width=640), search_width=0)
+
+        assert service.face_cascade.searched_shape == (480, 640)
+        assert boxes == [[10, 10, 20, 20]]
+
+    def test_the_search_runs_on_a_downscaled_copy_when_a_width_is_set(self):
+        service = self._service([])
+        service.detect_faces(_frame(height=480, width=640), search_width=320)
+
+        assert service.face_cascade.searched_shape == (240, 320), (
             "detection should search a 320px-wide copy, not the full frame"
         )
 
@@ -294,7 +314,7 @@ class TestDetectionDownscaling:
         # A box found on the 320px copy of a 640px frame is half-scale.
         service = self._service([(50, 40, 60, 60)])
 
-        boxes = service.detect_faces(_frame(height=480, width=640))
+        boxes = service.detect_faces(_frame(height=480, width=640), search_width=320)
 
         assert boxes == [[100, 80, 120, 120]], "boxes must be scaled back up"
 
@@ -302,7 +322,7 @@ class TestDetectionDownscaling:
         """Nothing is gained by searching more pixels than were captured."""
         service = self._service([(10, 10, 20, 20)])
 
-        boxes = service.detect_faces(_frame(height=180, width=240))
+        boxes = service.detect_faces(_frame(height=180, width=240), search_width=320)
 
         assert service.face_cascade.searched_shape == (180, 240)
         assert boxes == [[10, 10, 20, 20]], "coordinates must pass through unchanged"
@@ -314,7 +334,7 @@ class TestDetectionDownscaling:
         frame = _frame(height=480, width=640)
         frame[80:200, 100:220] = 255              # mark the full-scale face region
 
-        box = service.detect_faces(frame)[0]
+        box = service.detect_faces(frame, search_width=320)[0]
         crop = EmotionService.crop_face(frame, box)
 
         assert (crop == 255).any(), "the crop missed the face it was pointed at"
