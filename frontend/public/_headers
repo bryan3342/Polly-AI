@@ -1,11 +1,15 @@
 # Security headers for the static frontend.
-# connect-src stays broad because the backend origin is configured per
-# deployment via VITE_WS_URL and is not known at build time.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(self), geolocation=()
   X-Frame-Options: DENY
+  # connect-src and worker-src stay broad for two reasons: the backend origin
+  # is set per deployment through VITE_WS_URL and is not known at build time,
+  # and MediaPipe's WASM runtime loads itself through a blob: worker.
+  # 'wasm-unsafe-eval' is what lets that WASM compile at all; without it the
+  # face and hand tracking silently fails to start.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src *; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

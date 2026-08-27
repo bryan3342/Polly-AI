@@ -24,7 +24,7 @@ google-genai>=1.0.0,<3.0.0
 tensorflow-cpu>=2.16.0,<3.0.0; platform_machine == "x86_64"
 tensorflow>=2.16.0,<3.0.0; platform_machine != "x86_64"
 opencv-python-headless>=4.8.0,<5.0.0
-pillow>=10.1.0,<12.0.0
+pillow>=12.3.0,<13.0.0
 
 # deepface's own dependency closure. deepface itself lives in
 # requirements-nodeps.txt because it must be installed with --no-deps; these are
@@ -41,15 +41,16 @@ werkzeug>=3.0.0,<4.0.0
 joblib>=1.2,<2.0.0
 lz4>=4.0.0,<6.0.0
 
-# Hand and finger tracking.
-#
-# Pinned below 1.0: mediapipe 1.x aborts the process on macOS with
-# "Check failed: service_ Service is unavailable" from inside its Metal helper
-# -- an abort, not an exception, so it takes the server down rather than
-# degrading. 0.10.x runs the same model on CPU in ~5 ms per 720p frame.
-#
-# OpenCV has no hand or finger model; see app/services/gesture_service.py.
-mediapipe>=0.10.30,<1.0.0
+# What mediapipe imports at load. It is installed with --no-deps (see
+# requirements-nodeps.txt) because its own dependency list names
+# `opencv-contrib-python` with no upper bound, which resolves to OpenCV 5 and
+# installs a *second* cv2 on top of the pinned one. sounddevice and
+# opencv-contrib-python are both omitted; nothing on the paths this app uses
+# reaches them.
+absl-py>=2.3,<3.0.0
+flatbuffers>=25.9,<26.0.0
+certifi>=2024.0.0
+matplotlib>=3.8.0,<4.0.0
 
 # Audio Analysis
 librosa>=0.10.1,<1.0.0
