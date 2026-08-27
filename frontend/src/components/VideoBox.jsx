@@ -3,7 +3,7 @@ import { useWS } from '../context/wsContext';
 import { FaVideoSlash } from 'react-icons/fa';
 
 export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady }) {
-    const { sendFrame, emotion, connected, FRAME_MS } = useWS();
+    const { sendFrame, emotion, connected, FRAME_MS, IDLE_FRAME_MS } = useWS();
     const videoRef   = useRef(null);
     const canvasRef  = useRef(null);
     const streamRef  = useRef(null);
@@ -36,18 +36,28 @@ export default function VideoBox({ isRecording, cameraOn, muted, onAudioReady })
     useEffect(() => { streamRef.current?.getVideoTracks().forEach(t => { t.enabled = cameraOn; }); }, [cameraOn, ready]);
     useEffect(() => { streamRef.current?.getAudioTracks().forEach(t => { t.enabled = !muted; }); },  [muted, ready]);
 
-    /* ── send frames every FRAME_MS ──────────────── */
+    /* ── send frames ─────────────────────────────── */
+    // Full rate while recording, slower while idle: every frame costs a
+    // DeepFace inference server-side, and only the recorded ones end up in the
+    // report.
+    const frameInterval = isRecording ? FRAME_MS : IDLE_FRAME_MS;
     useEffect(() => {
         const id = setInterval(() => {
+            // Send nothing at all while the tab is in the background. This is
+            // what lets the server's idle timeout actually fire: browsers still
+            // run this timer in a hidden tab, just throttled to roughly once a
+            // minute, and one frame a minute is enough to keep a connection
+            // looking busy forever.
+            if (document.hidden) return;
             const v = videoRef.current, c = canvasRef.current;
             if (!v || !c || v.readyState < v.HAVE_CURRENT_DATA || !cameraOn || !connected) return;
             const ctx = c.getContext('2d');
             c.width = v.videoWidth; c.height = v.videoHeight;
             ctx.drawImage(v, 0, 0);
             sendFrame(c.toDataURL('image/jpeg', 0.6));
-        }, FRAME_MS);
+        }, frameInterval);
         return () => clearInterval(id);
-    }, [FRAME_MS, sendFrame, cameraOn, connected]);
+    }, [frameInterval, sendFrame, cameraOn, connected]);
 
     /* ── audio recording ─────────────────────────── */
     useEffect(() => {

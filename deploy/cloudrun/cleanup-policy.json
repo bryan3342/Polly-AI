@@ -1,0 +1,12 @@
+[
+  {
+    "name": "keep-recent-releases",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": { "keepCount": 2 }
+  },
+  {
+    "name": "delete-everything-older",
+    "action": { "type": "Delete" },
+    "condition": { "olderThan": "1d" }
+  }
+]

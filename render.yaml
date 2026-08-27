@@ -5,6 +5,11 @@
 # after startup and 292 MB after inference. It sleeps after ~15 minutes of
 # inactivity and cold-starts on the next request, so the first visit after a
 # quiet period is slow.
+#
+# Memory is not the constraint here, though -- CPU is. The free instance is
+# 0.1 CPU, and this app runs a DeepFace inference per video frame, so expect
+# frames to queue and report generation to be slow. Cloud Run's free tier gives
+# a full vCPU and is the recommended host; see deploy/cloudrun/README.md.
 services:
   - type: web
     name: polly-ai

@@ -28,6 +28,39 @@ from app.utils.serialization import sanitize
 logger = logging.getLogger(__name__)
 
 
+# Close code sent when a connection is reaped for inactivity. 4000-4999 is the
+# range reserved for application use, so it cannot collide with a protocol code.
+# The client recognises this one and reconnects when the user comes back,
+# instead of treating it as an error worth showing.
+WS_CLOSE_IDLE = 4000
+
+
+async def receive_or_idle(websocket, session_id: str, timeout: Optional[float] = None):
+    """Await the next client message, or None if the connection went idle.
+
+    Returning None rather than raising keeps the caller's loop readable, and
+    keeps "the user left" distinct from "the connection broke" -- they want
+    different close codes and different client behaviour.
+
+    Lives here rather than beside the route because it is a transport concern,
+    and because `app.main` cannot be imported without the whole ML stack, which
+    would put this out of reach of the unit suite.
+    """
+    if timeout is None:
+        timeout = config.WS_IDLE_TIMEOUT_SECONDS
+
+    # Disabled. On an always-on host there is no per-request billing to save,
+    # and reaping a session there only costs the user their topic and history.
+    if timeout <= 0:
+        return await websocket.receive_text()
+
+    try:
+        return await asyncio.wait_for(websocket.receive_text(), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.info("Closing session %s after %.0fs idle", session_id, timeout)
+        return None
+
+
 class ConnectionManager:
     """WebSocket connection lifecycle and message fan-out.
 
