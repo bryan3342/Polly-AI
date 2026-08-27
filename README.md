@@ -132,6 +132,11 @@ npx wrangler login     # once
 Only the landing page goes up, as the site root. The app itself cannot run on
 Pages, so deploying that too would put a permanently broken app behind the link.
 
+The script prints the live URL when it finishes. Use that one: `pages.dev`
+subdomains are unique across every Cloudflare account, so if the project name is
+already taken a suffix is added, and the unsuffixed address belongs to somebody
+else entirely.
+
 ### Deploying the app somewhere, if you ever want to
 
 The whole app is still **one container**: API, WebSocket and the built SPA from

@@ -11,6 +11,13 @@
 #   ./deploy-landing.sh --build    build only, no deploy
 #
 # First time: npx wrangler login
+#
+# On the URL. pages.dev subdomains are unique across every Cloudflare account,
+# not just yours, so a project named `polly-ai` does not necessarily get
+# polly-ai.pages.dev; if the name is taken, Cloudflare appends a suffix and you
+# get something like polly-ai-e2a.pages.dev instead. The name it hands out is
+# printed at the end of the deploy, and that is the URL to use. Visiting the
+# unsuffixed one may well load a stranger's site.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -71,4 +78,20 @@ fi
 
 echo
 echo "Deploying to Cloudflare Pages project '$PROJECT'..."
-npx wrangler pages deploy "$OUT" --project-name "$PROJECT" --commit-dirty=true
+npx wrangler pages deploy "$OUT" --project-name "$PROJECT" --commit-dirty=true | tee /tmp/pages-deploy.log
+
+# Wrangler prints two URLs: one for this deployment specifically and one that
+# always points at the latest. Repeat the second, since that is the one worth
+# putting on a portfolio, and since it may not be the name that was asked for.
+url=$(grep -oE 'https://[a-z0-9-]+\.pages\.dev' /tmp/pages-deploy.log | tail -1)
+if [ -n "$url" ]; then
+    echo
+    echo "Live at: $url"
+    if [ "$url" != "https://$PROJECT.pages.dev" ]; then
+        echo
+        echo "Note: that is not https://$PROJECT.pages.dev. pages.dev names are"
+        echo "      unique across all Cloudflare accounts, so this one was taken"
+        echo "      and a suffix was added. Use the URL above; the unsuffixed"
+        echo "      one belongs to somebody else."
+    fi
+fi
