@@ -118,7 +118,21 @@ FRAME_INTERVAL_MS=66 DETECT_WIDTH=0 ./run-local.sh   # ~15 fps, full resolution
 Use `backend/tests/demos/detection_tuning_demo.py` to pick `DETECT_WIDTH` from
 your own camera, moving the way you actually move.
 
-### Deploying it somewhere, if you ever want to
+### Publishing the landing page
+
+`frontend/public/landing.html` is a static page with the demo recording on it,
+for linking to from elsewhere. It publishes to Cloudflare Pages, which is free
+and needs no card:
+
+```bash
+npx wrangler login     # once
+./deploy-landing.sh
+```
+
+Only the landing page goes up, as the site root. The app itself cannot run on
+Pages, so deploying that too would put a permanently broken app behind the link.
+
+### Deploying the app somewhere, if you ever want to
 
 The whole app is still **one container**: API, WebSocket and the built SPA from
 one URL, and `Dockerfile`, `render.yaml` and `deploy/cloudrun/` are all still
