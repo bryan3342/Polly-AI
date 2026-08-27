@@ -129,19 +129,25 @@ so a single container host serves everything from one URL.
 Measured footprint: **231 MB after startup, 292 MB after inference** — small
 enough for a 512 MB free instance.
 
-| Host | Free? | Notes |
-|---|---|---|
-| **Cloud Run** | Yes, within quota | 1 vCPU. [`deploy/cloudrun/`](deploy/cloudrun/README.md) — recommended |
-| **Render** | Yes, 512 MB | `render.yaml` committed. **0.1 CPU**, sleeps after 15 min idle |
-| **Fly.io** | No | `fly.toml` committed; free allowances ended in 2024 |
-| Hugging Face Spaces | No | Docker Spaces require a paid plan |
-| Cloudflare Pages | Yes | Frontend only — Workers cannot run TensorFlow, librosa or ffmpeg |
+**Google Cloud Run is the deployment target.** See
+[`deploy/cloudrun/README.md`](deploy/cloudrun/README.md).
 
-Cloud Run is the recommendation because CPU, not memory, is what this app is
-short of: emotion inference runs per frame, and Render's free instance provides
-a tenth of a core. Cloud Run's free tier allows **50 hours of connected time a
-month** at 1 vCPU. See [`deploy/cloudrun/README.md`](deploy/cloudrun/README.md)
-for what that depends on.
+CPU, not memory, is what this app is short of: emotion inference runs once per
+video frame. Cloud Run's free tier provides a full vCPU and **50 hours of
+connected time a month**, and the app already depends on Google for the Gemini
+API, so keeping compute in the same project keeps credentials and billing in one
+place.
+
+| Host | Free? | Status |
+|---|---|---|
+| **Cloud Run** | Yes, within quota | **In use.** 1 vCPU, scales to zero |
+| Render | Yes, 512 MB | Dropped — **0.1 CPU** is too little for per-frame inference |
+| Fly.io | No | `fly.toml` retained; free allowances ended in 2024 |
+| Hugging Face Spaces | No | Docker Spaces require a paid plan |
+| Cloudflare Pages | Yes | Frontend only, and only if egress ever becomes a limit |
+
+The SPA, API and WebSocket are all served by the one container from a single
+origin, so there is no CORS to configure and one URL to deploy.
 
 The container reads `PORT` (default 8080), so it runs unchanged on Fly (8080),
 Spaces (7860) and Cloud Run (injected).
@@ -154,8 +160,10 @@ a request in flight for its whole life:
 - Frames are sent at 1/second while recording and 1/5s otherwise, and **not at
   all while the browser tab is hidden**. Every frame costs a DeepFace inference.
 - The server closes connections silent for `WS_IDLE_TIMEOUT_SECONDS` (default
-  600; `0` disables). Reconnecting starts a new session, so a reaped session
-  loses its topic and coaching history.
+  120; `0` disables). Reconnecting starts a new session, so a reaped session
+  loses its topic and coaching history — which is why the client sends a
+  keepalive every 45s **whenever its tab is visible**. Silence therefore means
+  the tab is hidden, not that the user is sitting still.
 
 On an always-on host set `WS_IDLE_TIMEOUT_SECONDS=0`.
 
