@@ -3,7 +3,7 @@
 The WebSocket layer used to import the concrete services directly, which meant
 importing it pulled in TensorFlow, OpenCV, librosa and the Gemini SDK. Tests
 that wanted to exercise transport had to inject fake modules into `sys.modules`
-before importing anything — a strong signal that the dependency ran the wrong
+before importing anything, which was a strong signal that the dependency ran the wrong
 way.
 
 These protocols are structural (`typing.Protocol`), so the existing services

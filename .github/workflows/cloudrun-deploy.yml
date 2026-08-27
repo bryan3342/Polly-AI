@@ -54,7 +54,7 @@ jobs:
           docker push "$IMAGE:latest"
 
       # The service spec is the source of truth for CPU, memory, concurrency and
-      # scaling — the settings the free tier depends on. Deploying with
+      # scaling: the settings the free tier depends on. Deploying with
       # `gcloud run deploy` flags instead would silently reset them.
       - name: Deploy service
         run: |

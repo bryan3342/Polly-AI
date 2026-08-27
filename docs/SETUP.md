@@ -8,7 +8,7 @@ Local development, environment configuration and deployment.
 |---|---|
 | Python 3.10+ | 3.12 is what the Docker image uses |
 | Node.js 18+ | for the Vite frontend |
-| **ffmpeg** | required — decodes the browser's WebM/Opus recordings. `brew install ffmpeg` / `sudo apt install ffmpeg` |
+| **ffmpeg** | required, decodes the browser's WebM/Opus recordings. `brew install ffmpeg` / `sudo apt install ffmpeg` |
 | Gemini API key | optional; without it emotion and voice analysis still work, but there is no transcript and no coaching |
 
 ## Running locally
@@ -25,7 +25,7 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 The first request that hits emotion detection downloads the DeepFace model
-weights (a few hundred MB) — expect the first frame to take a while.
+weights (a few hundred MB), expect the first frame to take a while.
 
 Frontend:
 
@@ -68,7 +68,7 @@ from collection by `pytest.ini` and must never run in CI.
 | Symptom | Cause |
 |---|---|
 | Report says "Speech could not be transcribed" | No `GEMINI_API_KEY`, or ffmpeg is missing |
-| Confidence shows "—" and tone reads "unavailable" | Voice analysis degraded — usually ffmpeg missing |
+| Confidence shows ", " and tone reads "unavailable" | Voice analysis degraded, usually ffmpeg missing |
 | Emotion chip never appears | No face detected: check lighting, and that the camera is not disabled in the toolbar |
 | First frame takes ~30s | One-off DeepFace weight download |
 | `Format not recognised` in logs | ffmpeg not on `PATH` |
@@ -82,7 +82,7 @@ WebSockets, so a single host runs everything (see `Dockerfile` and `fly.toml`).
 
 The app is one container: API, WebSocket and the built SPA from a single URL.
 Measured footprint is **231 MB after startup and warm-up, 292 MB after
-inference**, so it fits a 512 MB instance — which is what makes a free tier
+inference**, so it fits a 512 MB instance, which is what makes a free tier
 possible at all.
 
 | Host | Free? | Card needed? | Notes |
@@ -91,7 +91,7 @@ possible at all.
 | Render | Yes, 512 MB | No | `render.yaml` committed. 0.1 CPU; sleeps after ~15 min idle. |
 | Cloud Run | Yes, within quota | Yes | 1 vCPU, scales to zero. See [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md). |
 | Fly.io | No | Yes | 1 GB machine; `fly.toml` is retained. |
-| **Hugging Face Spaces** | **No — see below** | Yes | Docker Spaces require PRO. |
+| **Hugging Face Spaces** | **No, see below** | Yes | Docker Spaces require PRO. |
 | Cloudflare Pages | Yes | No | **Frontend only**, and only if egress ever becomes a limit. |
 
 Whatever the host, the container reads `PORT` and needs no other configuration.
@@ -111,7 +111,7 @@ second, and the post-recording report takes appreciably longer than it does
 locally. Frames are dropped rather than queued when inference cannot keep up, so
 this shows up as a sparser readout instead of a growing lag.
 
-#### Cloud Run — more CPU, but needs a card
+#### Cloud Run, more CPU, but needs a card
 
 A full vCPU, and it puts compute in the same project as the Gemini API. Its free
 tier requires a billing account with a card, and bills past the free tier rather
@@ -119,7 +119,7 @@ than stopping. Full walkthrough, including the free-tier arithmetic and the
 Artifact Registry cleanup policy:
 [`deploy/cloudrun/README.md`](../deploy/cloudrun/README.md).
 
-#### Hugging Face Spaces — requires PRO
+#### Hugging Face Spaces, requires PRO
 
 `deploy/huggingface/deploy.sh` works, but Hugging Face no longer runs Docker
 Spaces on the free tier:
@@ -128,7 +128,7 @@ Spaces on the free tier:
 > free cpu-basic requires a PRO subscription.
 
 The script exits with that explanation on HTTP 402. It remains useful for
-anyone who has PRO — the free CPU tier there is 2 vCPU and 16 GB.
+anyone who has PRO, the free CPU tier there is 2 vCPU and 16 GB.
 
 ```bash
 # Only prerequisite: a write token from https://huggingface.co/settings/tokens
@@ -138,7 +138,7 @@ HF_TOKEN=hf_... ./deploy/huggingface/deploy.sh <your-hf-username> polly-ai
 The script creates the Space if it does not exist and updates it if it does, so
 it is safe to re-run for every deploy.
 
-The first build takes roughly ten minutes — the TensorFlow layer dominates.
+The first build takes roughly ten minutes, the TensorFlow layer dominates.
 Afterwards the app is at `https://<username>-polly-ai.hf.space`.
 
 For transcription and coaching, add `GEMINI_API_KEY` under the Space's
@@ -149,7 +149,7 @@ Storage on a Space is ephemeral: saved sessions do not survive a restart.
 
 ### Splitting the frontend onto Cloudflare Pages
 
-The frontend can be hosted separately — Cloudflare Pages serves it free — but
+The frontend can be hosted separately, Cloudflare Pages serves it free, but
 **the backend cannot run there**. Pages runs static assets plus Workers (V8
 isolates, 128 MB, no arbitrary binaries); this backend needs TensorFlow,
 OpenCV, librosa and an `ffmpeg` binary. Python Workers run on Pyodide and
@@ -167,7 +167,7 @@ Frontend, on Cloudflare Pages:
 `public/_redirects` provides the SPA fallback and `public/_headers` sets the
 security and caching headers; both are picked up automatically.
 
-`VITE_WS_URL` is baked in at **build time**, not read at runtime — changing it
+`VITE_WS_URL` is baked in at **build time**, not read at runtime, changing it
 requires a rebuild. Without it the client derives the WebSocket URL from
 `window.location`, which is correct for the single-host deploy and wrong for a
 split one.
@@ -183,14 +183,14 @@ npx wrangler pages deploy dist --project-name polly-ai
 Only needed if the SPA is ever split off from the backend; by default the
 container serves it from the same origin. Backend hosts that can actually run
 the analysis: Render (the target), Cloud Run, Fly.io, Railway, or any Docker
-host with ~512 MB of RAM — more CPU is better, but the app degrades by dropping
+host with ~512 MB of RAM, more CPU is better, but the app degrades by dropping
 frames rather than falling behind.
 
 ## Secrets & environment
 
 The backend reads configuration from environment variables via `python-dotenv`
 (`backend/app/config.py`). In development these come from an **untracked** `backend/.env`
-file; in production they come from Fly.io secrets. **Never commit a real `.env`** — it is
+file; in production they come from Fly.io secrets. **Never commit a real `.env`**: it is
 gitignored, and a template lives at `backend/.env.example`.
 
 ### 1. Create your local `.env`
@@ -213,7 +213,7 @@ The frontend uses `VITE_WS_URL` (see `frontend/.env.example`).
 
 ### 3. Production (Fly.io)
 
-Set the same secrets on the deployed app — do **not** rely on a committed file:
+Set the same secrets on the deployed app, do **not** rely on a committed file:
 
 ```bash
 fly secrets set GEMINI_API_KEY=... SECRET_KEY=...
@@ -223,5 +223,5 @@ fly secrets set GEMINI_API_KEY=... SECRET_KEY=...
 
 If a key is ever committed or leaked, **rotate it at the provider first** (e.g. revoke the
 Gemini key in Google AI Studio), then update your local `.env` and the Fly secrets. Rotation
-is what neutralizes an exposed key — removing it from files or history afterward does not
+is what neutralizes an exposed key, removing it from files or history afterward does not
 un-leak a key that was already pushed.

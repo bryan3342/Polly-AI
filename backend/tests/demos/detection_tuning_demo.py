@@ -79,7 +79,7 @@ def main(seconds):
     sizes = []
     frames = 0
 
-    print(f"Recording for {seconds}s — move the way you would while debating: "
+    print(f"Recording for {seconds}s, move the way you would while debating: "
           f"lean in, turn your head, gesture, talk.\n")
     deadline = time.monotonic() + seconds
 
@@ -101,7 +101,7 @@ def main(seconds):
                         sizes.append(biggest[2] / frame.shape[1])
 
             remaining = int(deadline - time.monotonic())
-            print(f"\r  {frames} frames, {remaining}s left…", end="", flush=True)
+            print(f"\r  {frames} frames, {remaining}s left...", end="", flush=True)
     finally:
         camera.release()
 
@@ -125,7 +125,7 @@ def main(seconds):
         elif relative >= 0.90:
             verdict = "slight loss"
         else:
-            verdict = "MISSES FACES — too small"
+            verdict = "MISSES FACES, too small"
         print(f"  {label(width):>9}  {rate:>8.0%}  {relative:>7.0%}  {ms:>8.0f}   {verdict}")
 
     if sizes:
@@ -135,8 +135,8 @@ def main(seconds):
         print(f"At its smallest, a search width below ~{int(30 / smallest)}px "
               f"could not have found it at all.")
 
-    print("\nThese timings are on this machine. The deployed instance is slower — a\n"
-          "tenth of a core measured roughly 70x this — so read the hit rates here and\n"
+    print("\nThese timings are on this machine. The deployed instance is slower, a\n"
+          "tenth of a core measured roughly 70x this, so read the hit rates here and\n"
           "the relative speeds, not the absolute milliseconds.")
     print("\nPick the smallest width with no measurable loss, then set DETECT_WIDTH to it.")
     return 0
