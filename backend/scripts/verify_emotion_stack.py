@@ -55,11 +55,33 @@ def check_no_duplicate_wheels() -> int:
             "depends on `tensorflow` and was not installed with --no-deps"
         )
 
-    if _installed("opencv-python"):
-        problems.append(
-            "`opencv-python` is installed alongside opencv-python-headless -- "
-            "same cause, see requirements-nodeps.txt"
-        )
+    # Any other distribution that also ships `cv2`. They install over each
+    # other rather than beside each other -- measured: with
+    # opencv-contrib-python present, `import cv2` reported 5.0.0 despite the 4.x
+    # pin, and removing either one left cv2 with no cvtColor at all. OpenCV 5 is
+    # what the pin at the top of requirements.txt exists to keep out.
+    for name in ("opencv-python", "opencv-contrib-python",
+                 "opencv-contrib-python-headless"):
+        if _installed(name):
+            problems.append(
+                f"`{name}` is installed alongside opencv-python-headless. Both "
+                f"ship cv2 and overwrite each other, so the effective OpenCV "
+                f"version is whichever landed last. Install whatever pulled it "
+                f"in with --no-deps; see requirements-nodeps.txt"
+            )
+
+    # The version actually in effect, which is the thing the pin is about.
+    try:
+        import cv2
+
+        if int(cv2.__version__.split(".")[0]) >= 5:
+            problems.append(
+                f"OpenCV {cv2.__version__} is active. 5.x dropped "
+                f"cv2.CascadeClassifier, which the emotion service detects "
+                f"faces with; requirements.txt pins below it for that reason"
+            )
+    except Exception as exc:
+        problems.append(f"could not determine the OpenCV version: {exc}")
 
     for problem in problems:
         print(f"FAIL: {problem}", file=sys.stderr)
