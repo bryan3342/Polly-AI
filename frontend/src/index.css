@@ -556,14 +556,22 @@ html, body, #root { height: 100%; overflow: hidden; font-family: -apple-system, 
    present, lit or unlit, so "not detected" reads as a state rather than as
    a missing feature. */
 .track-status {
-    left: 12px;
-    bottom: 12px;
+    /* Top right, clear of the connection dot that already sits in that corner,
+       so the two read as one status cluster rather than overlapping. */
+    top: 10px;
+    right: 28px;
     display: flex;
-    gap: 14px;
-    padding: 6px 10px;
-    font-size: 11px;
-    letter-spacing: .04em;
+    gap: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .55);
+    backdrop-filter: blur(6px);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
     text-transform: uppercase;
+    /* Above the tracking canvas, which is z-index 3. */
+    z-index: 10;
 }
 .track-status span {
     display: inline-flex;
