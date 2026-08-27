@@ -160,12 +160,12 @@ class ConnectionManager:
         })
 
         welcome = (
-            "Welcome to Polly AI — your personal debate coach!\n\n"
+            "Welcome to Polly AI, your personal debate coach!\n\n"
             "Here's how it works:\n"
             "1. I've assigned you a debate topic above. Hit the refresh button if you'd like a different one.\n"
             "2. Click **Record** when you're ready to practice your argument.\n"
             "3. While you speak, I'll track your facial expressions in real time.\n"
-            "4. Click **Stop** when you're done — I'll analyze your speech, vocal tone, and emotions, "
+            "4. Click **Stop** when you're done, I'll analyze your speech, vocal tone, and emotions, "
             "then give you a detailed performance report.\n\n"
             "You can also type here anytime to ask me for debate tips, counter-arguments, or coaching advice. Let's get started!"
         )

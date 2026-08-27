@@ -13,7 +13,7 @@ set -euo pipefail
 
 USERNAME="${1:?usage: deploy.sh <hf-username> [space-name]}"
 SPACE="${2:-polly-ai}"
-: "${HF_TOKEN:?HF_TOKEN is not set — create one at https://huggingface.co/settings/tokens}"
+: "${HF_TOKEN:?HF_TOKEN is not set, create one at https://huggingface.co/settings/tokens}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -34,7 +34,7 @@ CREATE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   https://huggingface.co/api/repos/create)
 case "$CREATE" in
   200|201) echo "    created ${USERNAME}/${SPACE}" ;;
-  409)     echo "    already exists — updating it" ;;
+  409)     echo "    already exists, updating it" ;;
   402)     echo "    Hugging Face requires a PRO subscription to run a Docker" >&2
            echo "    Space on the free cpu-basic tier. Only static Spaces are" >&2
            echo "    free. See docs/SETUP.md for hosts that can run this image." >&2
@@ -60,7 +60,7 @@ git -C "$REPO_ROOT" archive --format=tar HEAD | tar -x -C "$WORK"
 cp "$REPO_ROOT/deploy/huggingface/README.md" "$WORK/README.md"
 
 if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
-  echo "    note: uncommitted changes are NOT deployed — commit them first." >&2
+  echo "    note: uncommitted changes are NOT deployed, commit them first." >&2
 fi
 
 echo "==> Pushing to https://huggingface.co/spaces/$USERNAME/$SPACE"

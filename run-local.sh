@@ -64,7 +64,7 @@ setup() {
 if [ "${1:-}" = "--setup" ]; then setup; exit 0; fi
 
 if [ ! -x "$VENV/bin/python" ]; then
-    echo "No virtualenv yet — running setup first."
+    echo "No virtualenv yet, running setup first."
     setup
 fi
 
@@ -80,7 +80,7 @@ fi
 # download, matching what the container image does.
 export DEEPFACE_HOME="$PWD/backend"
 
-cleanup() { echo; echo "Stopping…"; kill 0 2>/dev/null || true; }
+cleanup() { echo; echo "Stopping..."; kill 0 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
 
 echo "==> Backend  http://localhost:$BACKEND_PORT"

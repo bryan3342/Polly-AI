@@ -5,7 +5,7 @@ backend/venv
 backend/__pycache__
 **/__pycache__
 *.pyc
-# Match at any depth — a bare `.env` pattern only matches the context root,
+# Match at any depth, a bare `.env` pattern only matches the context root,
 # so backend/.env was being baked into the image.
 **/.env
 **/.env.local

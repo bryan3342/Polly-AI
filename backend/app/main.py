@@ -56,7 +56,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Polly AI Debate Coach", lifespan=lifespan)
 
-# CORS middleware — explicit origins only; "*" with allow_credentials=True is
+# CORS middleware, explicit origins only; "*" with allow_credentials=True is
 # invalid per the CORS spec and over-permissive (issue #22).
 # The module-level TopicService instance that used to live here is gone: topic
 # assignment moved into ConnectionManager.assign_new_topic, which guards against

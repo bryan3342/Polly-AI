@@ -203,9 +203,9 @@ class TestAnalyzeSpeechPatterns:
     def test_pause_detection_ignores_short_gaps(self, service):
         segments = [
             {"start": 0, "end": 5},
-            {"start": 5.2, "end": 8},   # 0.2s gap — below the 0.5s threshold
-            {"start": 9, "end": 12},    # 1.0s gap — counted
-            {"start": 14, "end": 16},   # 2.0s gap — counted
+            {"start": 5.2, "end": 8},   # 0.2s gap, below the 0.5s threshold
+            {"start": 9, "end": 12},    # 1.0s gap, counted
+            {"start": 14, "end": 16},   # 2.0s gap, counted
         ]
         result = service.analyze_speech_patterns(
             {"text": "some words here", "segments": segments, "duration": 16}

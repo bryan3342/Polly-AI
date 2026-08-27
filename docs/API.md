@@ -33,7 +33,7 @@ against the static root, so traversal attempts (`../../backend/.env`) return
 
 ### `WS /ws`
 
-Opens a debate session. **The server assigns the session id** — it is not
+Opens a debate session. **The server assigns the session id**: it is not
 supplied by the client. Connecting to `/ws/<anything>` is rejected with `403`.
 
 On connect the server sends, in order: `session_assigned`, `topic_assigned`,
@@ -65,7 +65,7 @@ Begins a recording. Clears any emotion timeline from a previous take.
 
 #### `audio_complete`
 The recorded audio, base64-encoded. The frontend sends this once, after
-`MediaRecorder` stops — despite the name it is the whole recording, not a chunk.
+`MediaRecorder` stops, despite the name it is the whole recording, not a chunk.
 Accepted only while the session is recording. Accumulated audio is capped at
 `MAX_AUDIO_BYTES` (25 MB); beyond that the recording is truncated and the
 result carries `audio_truncated: true`.
@@ -221,7 +221,7 @@ Degradation flags, and what they mean for the numbers:
 
 | Field | When set | Consequence |
 |-------|----------|-------------|
-| `transcript_is_mock` | No transcript could be produced. `transcript_error` says why (no API key, undecodable audio, API failure, no speech). | `transcript` is `""` and `speech_analysis` is `{}` — no pace, word count or filler numbers at all. |
+| `transcript_is_mock` | No transcript could be produced. `transcript_error` says why (no API key, undecodable audio, API failure, no speech). | `transcript` is `""` and `speech_analysis` is `{}`, no pace, word count or filler numbers at all. |
 | `voice_analysis_degraded` | Audio could not be decoded or analysed. | Every `voice_analysis` value is `null`; confidence is excluded from `overall_score`. |
 | `audio_truncated` | Recording exceeded `MAX_AUDIO_BYTES`. | Analysis ran on the first 25 MB only. |
 

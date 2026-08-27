@@ -1,4 +1,4 @@
-# Installed with `pip install --no-deps` — see the Dockerfile.
+# Installed with `pip install --no-deps`, see the Dockerfile.
 #
 # deepface declares hard requirements on `tensorflow` and `opencv-python`. Both
 # are satisfied here by deliberately chosen variants instead:
@@ -33,3 +33,23 @@ retina-face>=0.0.14,<0.1.0
 # This is invisible on aarch64, where plain `tensorflow` is what gets installed
 # anyway. It only appears on the architecture Cloud Run actually runs.
 tf-keras>=2.16.0,<3.0.0
+
+# mediapipe, for hand and finger tracking. OpenCV has no hand or finger model;
+# see app/services/gesture_service.py.
+#
+# --no-deps for a sharper version of the same trap as above. mediapipe requires
+# `opencv-contrib-python` with no upper bound, which resolves to OpenCV 5 and
+# installs a second cv2 *over* the pinned opencv-python-headless. The two
+# distributions share files, so the result is not a clean fallback: measured
+# here, `import cv2` reported 5.0.0 despite the 4.x pin, and uninstalling
+# either one left cv2 broken with no `cvtColor` at all. OpenCV 5 is exactly
+# what the pin at the top of requirements.txt exists to keep out.
+#
+# Verified without it: the hand landmarker runs, and CascadeClassifier -- which
+# OpenCV 5 was breaking -- still loads.
+#
+# Pinned below 1.0 as well: mediapipe 1.x aborts the process on macOS with
+# "Check failed: service_ Service is unavailable" from inside its Metal helper,
+# an abort rather than an exception, so it takes the server down instead of
+# degrading.
+mediapipe>=0.10.30,<1.0.0
