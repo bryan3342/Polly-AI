@@ -55,3 +55,7 @@ frontend/public/demo-original.mp4
 
 # Built by deploy-landing.sh from frontend/public; regenerated on every run.
 landing-dist/
+
+# Wrangler local cache. Holds the Cloudflare account id and name; a local
+# artifact, not a source one.
+.wrangler/
