@@ -53,6 +53,11 @@ setup() {
     echo "==> Installing frontend dependencies"
     (cd frontend && npm install --silent)
 
+    # Face and hand tracking runs in the browser, so MediaPipe's WASM runtime
+    # and models have to be reachable over HTTP. Neither is committed.
+    echo "==> Staging the in-browser tracking runtime"
+    (cd frontend && ./scripts/stage-mediapipe.sh)
+
     echo "==> Setup complete."
 }
 
