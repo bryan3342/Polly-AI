@@ -1,0 +1,126 @@
+{
+  "source": "muxspace/facial_expressions",
+  "seed": 20260908,
+  "cases": [
+    {
+      "image": "Anna_Jones_0001.jpg",
+      "label": "sad",
+      "source_label": "sadness",
+      "id": "T01"
+    },
+    {
+      "image": "Arnold_Schwarzenegger_0042.jpg",
+      "label": "happy",
+      "source_label": "happiness",
+      "id": "T02"
+    },
+    {
+      "image": "Augustin_Calleri_0004.jpg",
+      "label": "surprise",
+      "source_label": "surprise",
+      "id": "T03"
+    },
+    {
+      "image": "Charles_Moose_0001.jpg",
+      "label": "angry",
+      "source_label": "anger",
+      "id": "T04"
+    },
+    {
+      "image": "Cherie_Blair_0002.jpg",
+      "label": "surprise",
+      "source_label": "surprise",
+      "id": "T05"
+    },
+    {
+      "image": "Ciro_Gomes_0004.jpg",
+      "label": "neutral",
+      "source_label": "neutral",
+      "id": "T06"
+    },
+    {
+      "image": "David_Nalbandian_0006.jpg",
+      "label": "disgust",
+      "source_label": "disgust",
+      "id": "T07"
+    },
+    {
+      "image": "Doris_Schroeder_0002.jpg",
+      "label": "happy",
+      "source_label": "happiness",
+      "id": "T08"
+    },
+    {
+      "image": "Gala_Leon_Garcia_0001.jpg",
+      "label": "angry",
+      "source_label": "anger",
+      "id": "T09"
+    },
+    {
+      "image": "James_Schultz_0001.jpg",
+      "label": "sad",
+      "source_label": "sadness",
+      "id": "T10"
+    },
+    {
+      "image": "Jan_Ullrich_0002.jpg",
+      "label": "angry",
+      "source_label": "anger",
+      "id": "T11"
+    },
+    {
+      "image": "Jennifer_Capriati_0037.jpg",
+      "label": "surprise",
+      "source_label": "surprise",
+      "id": "T12"
+    },
+    {
+      "image": "Mirela_Manjani_0001.jpg",
+      "label": "fear",
+      "source_label": "fear",
+      "id": "T13"
+    },
+    {
+      "image": "Monica_Seles_0006.jpg",
+      "label": "disgust",
+      "source_label": "disgust",
+      "id": "T14"
+    },
+    {
+      "image": "Nate_Blackwell_0001.jpg",
+      "label": "fear",
+      "source_label": "fear",
+      "id": "T15"
+    },
+    {
+      "image": "Patricia_Clarkson_0001.jpg",
+      "label": "happy",
+      "source_label": "happiness",
+      "id": "T16"
+    },
+    {
+      "image": "Paula_Radcliffe_0004.jpg",
+      "label": "disgust",
+      "source_label": "disgust",
+      "id": "T17"
+    },
+    {
+      "image": "Robert_Blake_0004.jpg",
+      "label": "sad",
+      "source_label": "sadness",
+      "id": "T18"
+    },
+    {
+      "image": "Stephanie_Cohen_Aloro_0001.jpg",
+      "label": "fear",
+      "source_label": "fear",
+      "id": "T19"
+    },
+    {
+      "image": "Zumrati_Juma_0001.jpg",
+      "label": "neutral",
+      "source_label": "neutral",
+      "id": "T20"
+    }
+  ]
+}

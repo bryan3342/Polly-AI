@@ -1,0 +1,882 @@
+{
+ "_comment": "Ground truth for the 175-image tuning pool. 'source' is the crowd-sourced label from muxspace/facial_expressions. 'annotator' is an independent blind pass: nine agents were shown the images with no access to the source labels or to each other, and asked for a label and a 1-5 confidence. They agree with the source on 104 of 175 (59%). Scoring against the subset where both agree is what the README calls the trusted subset, and is the only figure here worth quoting as an accuracy.",
+ "source": {
+  "Adrien_Brody_0001.jpg": "happy",
+  "Ain_Seppik_0001.jpg": "neutral",
+  "Alexander_Lukashenko_0001.jpg": "angry",
+  "Amelie_Mauresmo_0009.jpg": "surprise",
+  "Andre_Agassi_0034.jpg": "sad",
+  "Andreas_Vinciguerra_0001.jpg": "surprise",
+  "Angelo_Reyes_0002.jpg": "neutral",
+  "Ashanti_0002.jpg": "happy",
+  "Aung_San_Suu_Kyi_0002.jpg": "sad",
+  "Bashar_Assad_0001.jpg": "happy",
+  "Beth_Blough_0001.jpg": "sad",
+  "Bill_Carmody_0001.jpg": "surprise",
+  "Bill_Simon_0012.jpg": "surprise",
+  "Brett_Boone_0001.jpg": "neutral",
+  "Bridgette_Wilson-Sampras_0003.jpg": "happy",
+  "Britney_Spears_0011.jpg": "sad",
+  "Bruce_Springsteen_0004.jpg": "happy",
+  "Bruce_Van_De_Velde_0002.jpg": "sad",
+  "Carlo_Ancelotti_0003.jpg": "neutral",
+  "Charles_Moose_0013.jpg": "angry",
+  "Chris_Byrd_0001.jpg": "surprise",
+  "Chris_Hernandez_0001.jpg": "surprise",
+  "Christine_Gregoire_0004.jpg": "surprise",
+  "Colin_Powell_0029.jpg": "neutral",
+  "Colin_Powell_0030.jpg": "angry",
+  "Colin_Powell_0088.jpg": "neutral",
+  "Colin_Powell_0181.jpg": "angry",
+  "Dan_LaCoutre_0001.jpg": "disgust",
+  "Daniela_Hantuchova_0001.jpg": "sad",
+  "Darko_Milicic_0001.jpg": "surprise",
+  "Dave_Lewis_0001.jpg": "neutral",
+  "Dave_Odom_0001.jpg": "surprise",
+  "David_Nalbandian_0006.jpg": "disgust",
+  "Denis_Coderre_0001.jpg": "happy",
+  "Dennis_Kucinich_0006.jpg": "angry",
+  "Dileep_105.jpg": "sad",
+  "Dileep_56.jpg": "sad",
+  "Dileep_79.jpg": "sad",
+  "Dileep_85.jpg": "angry",
+  "Donald_Rumsfeld_0041.jpg": "neutral",
+  "Donald_Rumsfeld_0112.jpg": "neutral",
+  "Dwarakish_108.jpg": "disgust",
+  "Dwarakish_109.jpg": "disgust",
+  "Dwarakish_181.jpg": "disgust",
+  "Dwarakish_94.jpg": "disgust",
+  "Edward_Said_0001.jpg": "neutral",
+  "Ellen_DeGeneres_0002.jpg": "fear",
+  "Emma_Thompson_0001.jpg": "happy",
+  "Erika_Harold_0001.jpg": "surprise",
+  "Erika_Harold_0002.jpg": "fear",
+  "Fabian_Vargas_0001.jpg": "surprise",
+  "Fatmir_Limaj_0001.jpg": "neutral",
+  "Fidel_Castro_0009.jpg": "neutral",
+  "Filippo_Inzaghi_0002.jpg": "angry",
+  "Gary_Bauer_0001.jpg": "neutral",
+  "Geno_Auriemma_0001.jpg": "angry",
+  "George_W_Bush_0082.jpg": "happy",
+  "George_W_Bush_0191.jpg": "sad",
+  "George_W_Bush_0202.jpg": "surprise",
+  "George_W_Bush_0356.jpg": "surprise",
+  "George_W_Bush_0478.jpg": "neutral",
+  "George_W_Bush_0529.jpg": "happy",
+  "Gerhard_Schroeder_0003.jpg": "sad",
+  "Gerry_Parsky_0001.jpg": "fear",
+  "Glenn_Rivers_0001.jpg": "angry",
+  "Guennadi_Chipouline_0001.jpg": "angry",
+  "Guillermo_Ortiz_0001.jpg": "happy",
+  "Harrison_Ford_0008.jpg": "happy",
+  "Hashim_Thaci_0002.jpg": "happy",
+  "Hector_Babenco_0003.jpg": "neutral",
+  "Iva_Majoli_0002.jpg": "fear",
+  "Jackie_Chan_0006.jpg": "fear",
+  "Jacques_Chirac_0032.jpg": "neutral",
+  "James_Carville_0001.jpg": "angry",
+  "Janela_Jara_0001.jpg": "sad",
+  "Janet_Napolitano_0003.jpg": "surprise",
+  "Javier_Zanetti_0001.jpg": "sad",
+  "Jayamadhuri_206.jpg": "disgust",
+  "Jelena_Dokic_0001.jpg": "angry",
+  "Jennifer_Aniston_0001.jpg": "fear",
+  "Jennifer_Capriati_0002.jpg": "angry",
+  "Jennifer_Capriati_0010.jpg": "angry",
+  "Jennifer_Capriati_0035.jpg": "angry",
+  "Jennifer_Lopez_0001.jpg": "happy",
+  "Jennifer_Lopez_0015.jpg": "happy",
+  "Jeremy_Greenstock_0015.jpg": "surprise",
+  "Joan_Laporta_0008.jpg": "happy",
+  "Joanne_Duquette_0001.jpg": "sad",
+  "John_Ashcroft_0030.jpg": "angry",
+  "John_Kerry_0015.jpg": "surprise",
+  "Jose_Miguel_Aleman_0001.jpg": "neutral",
+  "Joseph_Blatter_0002.jpg": "happy",
+  "Karen_Allen_0001.jpg": "happy",
+  "KatrinaKaif_1.jpg": "disgust",
+  "KatrinaKaif_62.jpg": "disgust",
+  "KatrinaKaif_82.jpg": "disgust",
+  "Keith_Rodriguez_0001.jpg": "sad",
+  "Khin_Nyunt_0001.jpg": "neutral",
+  "Khum_Bahadur_Khadka_0001.jpg": "neutral",
+  "Kim_Clijsters_0012.jpg": "disgust",
+  "Lindsay_Davenport_0002.jpg": "angry",
+  "Lleyton_Hewitt_0013.jpg": "fear",
+  "Lleyton_Hewitt_0040.jpg": "sad",
+  "Lon_Kruger_0002.jpg": "angry",
+  "Mahathir_Mohamad_0003.jpg": "disgust",
+  "Manijeh_Hekmat_0001.jpg": "happy",
+  "Marat_Safin_0002.jpg": "angry",
+  "Mark_Schweiker_0002.jpg": "surprise",
+  "Mark_Stuart_0001.jpg": "neutral",
+  "Martha_Martinez_Flores_0001.jpg": "sad",
+  "Martina_McBride_0001.jpg": "happy",
+  "Megawati_Sukarnoputri_0018.jpg": "happy",
+  "Megawati_Sukarnoputri_0022.jpg": "neutral",
+  "Michael_Chang_0005.jpg": "angry",
+  "Michelle_Branch_0002.jpg": "angry",
+  "Mike_Babcock_0002.jpg": "angry",
+  "Mirela_Manjani_0001.jpg": "fear",
+  "Nadia_Petrova_0005.jpg": "neutral",
+  "Nan_Wang_0003.jpg": "sad",
+  "Natalie_Williams_0001.jpg": "surprise",
+  "Nate_Blackwell_0001.jpg": "fear",
+  "Nathalie_Gagnon_0001.jpg": "surprise",
+  "Nicanor_Duarte_Frutos_0004.jpg": "happy",
+  "Nicolas_Lapentti_0002.jpg": "surprise",
+  "Norah_Jones_0010.jpg": "surprise",
+  "Orrin_Hatch_0002.jpg": "surprise",
+  "Pablo_Khulental_0001.jpg": "surprise",
+  "Paradorn_Srichaphan_0002.jpg": "surprise",
+  "Paradorn_Srichaphan_0009.jpg": "surprise",
+  "Parthiv_Patel_0001.jpg": "neutral",
+  "Paul_Bremer_0013.jpg": "neutral",
+  "Paul_Bremer_0020.jpg": "sad",
+  "Pierre_Pettigrew_0001.jpg": "neutral",
+  "Rachel_Hunter_0001.jpg": "neutral",
+  "Rafael_Bielsa_0001.jpg": "neutral",
+  "Randy_Dryer_0001.jpg": "happy",
+  "Ray_Young_0001.jpg": "neutral",
+  "Rebecca_Romijn-Stamos_0001.jpg": "happy",
+  "Reina_Hayes_0001.jpg": "happy",
+  "Ricardo_Monasterio_0001.jpg": "happy",
+  "Richard_Cohen_0001.jpg": "surprise",
+  "Richard_Gephardt_0010.jpg": "surprise",
+  "Rick_Carlisle_0002.jpg": "angry",
+  "Rick_Pitino_0004.jpg": "surprise",
+  "Robbie_Coltrane_0001.jpg": "happy",
+  "Rodrigo_de_la_Cerna_0001.jpg": "happy",
+  "Roger_Mahony_0001.jpg": "sad",
+  "Roh_Moo-hyun_0008.jpg": "sad",
+  "Ruano_Pascual_0001.jpg": "fear",
+  "Rudolph_Giuliani_0016.jpg": "neutral",
+  "Satnarine_Sharma_0001.jpg": "sad",
+  "Serena_Williams_0001.jpg": "angry",
+  "Serena_Williams_0006.jpg": "angry",
+  "Serena_Williams_0008.jpg": "angry",
+  "Serena_Williams_0023.jpg": "angry",
+  "Shigeo_Nagashima_0001.jpg": "happy",
+  "Slobodan_Milosevic_0004.jpg": "sad",
+  "Spencer_Abraham_0017.jpg": "surprise",
+  "Stephanie_Cohen_Aloro_0001.jpg": "fear",
+  "Steve_Nash_0004.jpg": "fear",
+  "Sue_Guevara_0001.jpg": "sad",
+  "Tatiana_Panova_0001.jpg": "sad",
+  "Taufik_Hidayat_0001.jpg": "surprise",
+  "Thomas_OBrien_0008.jpg": "sad",
+  "Tiger_Woods_0001.jpg": "sad",
+  "Tiger_Woods_0006.jpg": "happy",
+  "Tim_Pawlenty_0001.jpg": "neutral",
+  "Tom_Ridge_0001.jpg": "angry",
+  "Tommy_Amaker_0001.jpg": "angry",
+  "Trent_Lott_0014.jpg": "sad",
+  "Venus_Williams_0005.jpg": "sad",
+  "Wang_Hailan_0001.jpg": "sad",
+  "Warren_Beatty_0002.jpg": "happy",
+  "facial-expressions_2868582k.jpg": "fear",
+  "facial-expressions_2868588k.jpg": "angry"
+ },
+ "annotator": {
+  "Adrien_Brody_0001.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Ain_Seppik_0001.jpg": {
+   "label": "neutral",
+   "conf": 5
+  },
+  "Alexander_Lukashenko_0001.jpg": {
+   "label": "angry",
+   "conf": 5
+  },
+  "Amelie_Mauresmo_0009.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Andre_Agassi_0034.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Andreas_Vinciguerra_0001.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Angelo_Reyes_0002.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Ashanti_0002.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Aung_San_Suu_Kyi_0002.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Bashar_Assad_0001.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Beth_Blough_0001.jpg": {
+   "label": "sad",
+   "conf": 5
+  },
+  "Bill_Carmody_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Bill_Simon_0012.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Brett_Boone_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Bridgette_Wilson-Sampras_0003.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Britney_Spears_0011.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Bruce_Springsteen_0004.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Bruce_Van_De_Velde_0002.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Carlo_Ancelotti_0003.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Charles_Moose_0013.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Chris_Byrd_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Chris_Hernandez_0001.jpg": {
+   "label": "fear",
+   "conf": 3
+  },
+  "Christine_Gregoire_0004.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Colin_Powell_0029.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Colin_Powell_0030.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Colin_Powell_0088.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Colin_Powell_0181.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Dan_LaCoutre_0001.jpg": {
+   "label": "disgust",
+   "conf": 3
+  },
+  "Daniela_Hantuchova_0001.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Darko_Milicic_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Dave_Lewis_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Dave_Odom_0001.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "David_Nalbandian_0006.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Denis_Coderre_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Dennis_Kucinich_0006.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Dileep_105.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Dileep_56.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Dileep_79.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Dileep_85.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Donald_Rumsfeld_0041.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Donald_Rumsfeld_0112.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Dwarakish_108.jpg": {
+   "label": "sad",
+   "conf": 4
+  },
+  "Dwarakish_109.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Dwarakish_181.jpg": {
+   "label": "fear",
+   "conf": 4
+  },
+  "Dwarakish_94.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Edward_Said_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Ellen_DeGeneres_0002.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "Emma_Thompson_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Erika_Harold_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Erika_Harold_0002.jpg": {
+   "label": "happy",
+   "conf": 2
+  },
+  "Fabian_Vargas_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Fatmir_Limaj_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Fidel_Castro_0009.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Filippo_Inzaghi_0002.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Gary_Bauer_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Geno_Auriemma_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "George_W_Bush_0082.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "George_W_Bush_0191.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "George_W_Bush_0202.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "George_W_Bush_0356.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "George_W_Bush_0478.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "George_W_Bush_0529.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Gerhard_Schroeder_0003.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Gerry_Parsky_0001.jpg": {
+   "label": "disgust",
+   "conf": 3
+  },
+  "Glenn_Rivers_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Guennadi_Chipouline_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Guillermo_Ortiz_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Harrison_Ford_0008.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Hashim_Thaci_0002.jpg": {
+   "label": "happy",
+   "conf": 2
+  },
+  "Hector_Babenco_0003.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Iva_Majoli_0002.jpg": {
+   "label": "surprise",
+   "conf": 2
+  },
+  "Jackie_Chan_0006.jpg": {
+   "label": "fear",
+   "conf": 3
+  },
+  "Jacques_Chirac_0032.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "James_Carville_0001.jpg": {
+   "label": "angry",
+   "conf": 2
+  },
+  "Janela_Jara_0001.jpg": {
+   "label": "sad",
+   "conf": 2
+  },
+  "Janet_Napolitano_0003.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Javier_Zanetti_0001.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Jayamadhuri_206.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Jelena_Dokic_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Jennifer_Aniston_0001.jpg": {
+   "label": "sad",
+   "conf": 2
+  },
+  "Jennifer_Capriati_0002.jpg": {
+   "label": "angry",
+   "conf": 5
+  },
+  "Jennifer_Capriati_0010.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Jennifer_Capriati_0035.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Jennifer_Lopez_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Jennifer_Lopez_0015.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Jeremy_Greenstock_0015.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Joan_Laporta_0008.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Joanne_Duquette_0001.jpg": {
+   "label": "sad",
+   "conf": 5
+  },
+  "John_Ashcroft_0030.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "John_Kerry_0015.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Jose_Miguel_Aleman_0001.jpg": {
+   "label": "neutral",
+   "conf": 2
+  },
+  "Joseph_Blatter_0002.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Karen_Allen_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "KatrinaKaif_1.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "KatrinaKaif_62.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "KatrinaKaif_82.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Keith_Rodriguez_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Khin_Nyunt_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Khum_Bahadur_Khadka_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Kim_Clijsters_0012.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Lindsay_Davenport_0002.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Lleyton_Hewitt_0013.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Lleyton_Hewitt_0040.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Lon_Kruger_0002.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Mahathir_Mohamad_0003.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Manijeh_Hekmat_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Marat_Safin_0002.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Mark_Schweiker_0002.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Mark_Stuart_0001.jpg": {
+   "label": "sad",
+   "conf": 2
+  },
+  "Martha_Martinez_Flores_0001.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Martina_McBride_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Megawati_Sukarnoputri_0018.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "Megawati_Sukarnoputri_0022.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Michael_Chang_0005.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Michelle_Branch_0002.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Mike_Babcock_0002.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Mirela_Manjani_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Nadia_Petrova_0005.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Nan_Wang_0003.jpg": {
+   "label": "sad",
+   "conf": 2
+  },
+  "Natalie_Williams_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Nate_Blackwell_0001.jpg": {
+   "label": "angry",
+   "conf": 5
+  },
+  "Nathalie_Gagnon_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Nicanor_Duarte_Frutos_0004.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "Nicolas_Lapentti_0002.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Norah_Jones_0010.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Orrin_Hatch_0002.jpg": {
+   "label": "surprise",
+   "conf": 4
+  },
+  "Pablo_Khulental_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Paradorn_Srichaphan_0002.jpg": {
+   "label": "surprise",
+   "conf": 2
+  },
+  "Paradorn_Srichaphan_0009.jpg": {
+   "label": "neutral",
+   "conf": 2
+  },
+  "Parthiv_Patel_0001.jpg": {
+   "label": "neutral",
+   "conf": 5
+  },
+  "Paul_Bremer_0013.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Paul_Bremer_0020.jpg": {
+   "label": "disgust",
+   "conf": 3
+  },
+  "Pierre_Pettigrew_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Rachel_Hunter_0001.jpg": {
+   "label": "neutral",
+   "conf": 5
+  },
+  "Rafael_Bielsa_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Randy_Dryer_0001.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Ray_Young_0001.jpg": {
+   "label": "surprise",
+   "conf": 4
+  },
+  "Rebecca_Romijn-Stamos_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Reina_Hayes_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Ricardo_Monasterio_0001.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Richard_Cohen_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Richard_Gephardt_0010.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Rick_Carlisle_0002.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Rick_Pitino_0004.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Robbie_Coltrane_0001.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Rodrigo_de_la_Cerna_0001.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "Roger_Mahony_0001.jpg": {
+   "label": "happy",
+   "conf": 4
+  },
+  "Roh_Moo-hyun_0008.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Ruano_Pascual_0001.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Rudolph_Giuliani_0016.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Satnarine_Sharma_0001.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Serena_Williams_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Serena_Williams_0006.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Serena_Williams_0008.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Serena_Williams_0023.jpg": {
+   "label": "angry",
+   "conf": 5
+  },
+  "Shigeo_Nagashima_0001.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "Slobodan_Milosevic_0004.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Spencer_Abraham_0017.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Stephanie_Cohen_Aloro_0001.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Steve_Nash_0004.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Sue_Guevara_0001.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Tatiana_Panova_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Taufik_Hidayat_0001.jpg": {
+   "label": "neutral",
+   "conf": 3
+  },
+  "Thomas_OBrien_0008.jpg": {
+   "label": "angry",
+   "conf": 3
+  },
+  "Tiger_Woods_0001.jpg": {
+   "label": "sad",
+   "conf": 4
+  },
+  "Tiger_Woods_0006.jpg": {
+   "label": "happy",
+   "conf": 5
+  },
+  "Tim_Pawlenty_0001.jpg": {
+   "label": "neutral",
+   "conf": 4
+  },
+  "Tom_Ridge_0001.jpg": {
+   "label": "surprise",
+   "conf": 3
+  },
+  "Tommy_Amaker_0001.jpg": {
+   "label": "angry",
+   "conf": 4
+  },
+  "Trent_Lott_0014.jpg": {
+   "label": "sad",
+   "conf": 3
+  },
+  "Venus_Williams_0005.jpg": {
+   "label": "sad",
+   "conf": 4
+  },
+  "Wang_Hailan_0001.jpg": {
+   "label": "sad",
+   "conf": 4
+  },
+  "Warren_Beatty_0002.jpg": {
+   "label": "happy",
+   "conf": 3
+  },
+  "facial-expressions_2868582k.jpg": {
+   "label": "fear",
+   "conf": 3
+  },
+  "facial-expressions_2868588k.jpg": {
+   "label": "angry",
+   "conf": 4
+  }
+ }
+}

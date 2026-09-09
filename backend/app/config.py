@@ -67,7 +67,7 @@ class Config:
     # screen less than ~90 ms after the movement it described, which reads as
     # lag at any server speed.
     #
-    # What still comes here is the DeepFace emotion classification, which has no
+    # What still comes here is the emotion classification, which has no
     # browser equivalent and which the score depends on. Emotion moves at the
     # speed of an expression rather than a hand, so it is sampled far more
     # slowly than it was when the overlay was waiting on it: five frames a

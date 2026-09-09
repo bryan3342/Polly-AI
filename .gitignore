@@ -39,8 +39,16 @@ Gemfile.lock
 # fetches for itself; nothing here should be a source artifact.
 backend/.deepface/
 
-# MediaPipe hand landmarker, fetched by scripts/fetch_models.py (~7.5 MB).
+# Models fetched by scripts/fetch_models.py: the MediaPipe hand landmarker
+# (~7.5 MB), YuNet face detection (~0.2 MB) and the FER+ emotion classifier
+# (~35 MB). Binaries the code can fetch for itself.
 backend/.models/
+
+# The 175-image tuning pool for the emotion eval, fetched by
+# backend/tests/eval/build_pool.py. The labels for it ARE committed
+# (pool_labels.json); only the photographs are re-downloadable.
+backend/tests/eval/pool/
+backend/tests/eval/pool.json
 
 # MediaPipe WASM runtime and models, staged into the frontend by
 # scripts/stage-mediapipe.sh. ~30 MB copied from node_modules and downloaded

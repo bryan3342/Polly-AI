@@ -16,7 +16,7 @@ Record a debate response and Polly AI analyses your **facial expressions, hand g
 
 ## Features
 
-- **Facial Emotion Detection**: Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). OpenCV locates the face, DeepFace classifies the cropped region
+- **Facial Emotion Detection**: Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). YuNet locates the face, the crop is rotated so the eyes are level, and FER+ classifies it. Accuracy is measured, not assumed: see `backend/tests/eval/README.md`
 - **Hand & Finger Tracking**: 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
 - **Live tracking indicators**: the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
 - **Speech-to-Text**: Recordings are transcribed by Gemini, verbatim, with filler words preserved
@@ -40,7 +40,7 @@ Record a debate response and Polly AI analyses your **facial expressions, hand g
 ### Backend
 - **FastAPI**: Async Python web framework with WebSocket support
 - **Google Gemini**: Transcription (`gemini-2.0-flash`) plus coaching and feedback (`gemini-2.0-flash-lite`), via the `google-genai` SDK
-- **DeepFace + TensorFlow**: Facial emotion classification from video frames
+- **YuNet + FER+ (ONNX, via OpenCV's DNN module)**: Face detection and emotion classification from video frames
 - **librosa + ffmpeg**: ffmpeg transcodes the browser's WebM/Opus recording to PCM; librosa extracts pitch, energy and spectral features
 - **SQLAlchemy + SQLite**: Session storage
 - **OpenCV**: Image preprocessing for face detection
@@ -48,7 +48,7 @@ Record a debate response and Polly AI analyses your **facial expressions, hand g
 ### Architecture
 ```
 Browser ←→ WebSocket ←→ FastAPI
-                          ├── EmotionService (OpenCV + DeepFace)
+                          ├── EmotionService (OpenCV: YuNet + FER+)
                           ├── VoiceAnalysisService (ffmpeg + librosa)
                           ├── SpeechService (Gemini transcription)
                           ├── ChatService (Gemini coaching)
@@ -63,7 +63,7 @@ Browser ←→ WebSocket ←→ FastAPI
 
 Polly runs **on your machine**. The browser holds the camera and microphone, and
 frames cross a loopback WebSocket to a local Python process that does the OpenCV
-face detection and DeepFace emotion work right there.
+face detection and emotion classification work right there.
 
 ```bash
 ./run-local.sh
@@ -94,7 +94,7 @@ Measured per frame on an Apple M4, at 1280x720:
 That is roughly a **tenfold increase in temporal resolution at full spatial
 resolution**, which matters, because emotion moves at the speed of a face.
 Sampling once a second throws most of the signal away, and downscaling before
-detection compounds the motion blur a Haar cascade already handles worst.
+detection compounds the motion blur the detector already handles worst.
 
 Verified end to end: 720p frames at the configured rate, **100% analysed, none
 dropped**.
@@ -259,7 +259,7 @@ Full message protocol: [`docs/API.md`](docs/API.md).
 
 1. **User opens the app**: WebSocket connects and a random debate topic is assigned
 2. **User clicks Record**: MediaRecorder captures audio; video frames are sent at 1fps
-3. **Real-time emotion tracking**: Each frame is analyzed by DeepFace, results stream back instantly
+3. **Real-time emotion tracking**: Each frame is analyzed by the FER+ classifier, results stream back instantly
 4. **User clicks Stop**: Audio blob is sent to the backend for processing
 5. **Backend analyzes everything:**
    - Transcribes speech
@@ -314,7 +314,7 @@ Polly-AI/
 │   │   ├── api/
 │   │   │   └── websocket.py            # ConnectionManager (transport only)
 │   │   ├── services/
-│   │   │   ├── emotion_service.py      # DeepFace emotion detection
+│   │   │   ├── emotion_service.py      # YuNet detection + FER+ emotion
 │   │   │   ├── chat_service.py         # Gemini AI integration
 │   │   │   ├── speech_service.py       # Speech transcription (mock)
 │   │   │   ├── voice_analysis_service.py  # librosa audio analysis
