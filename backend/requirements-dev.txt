@@ -1,10 +1,10 @@
 # Dependencies for the unit test suite (backend/tests/unit).
-# Heavy runtime deps (tensorflow, deepface, librosa, opencv) are deliberately
-# NOT installed in CI, unit tests must mock anything that needs them.
+# Heavy runtime deps (librosa, opencv, mediapipe) are deliberately NOT installed
+# in CI, unit tests must mock anything that needs them.
 pytest>=8.0
 python-dotenv>=1.0.0
 # The Gemini SDK is pure Python and pulls no native wheels, so the chat-service
-# tests can import it in CI without dragging in tensorflow/librosa/opencv.
+# tests can import it in CI without dragging in librosa/opencv.
 google-genai>=1.0.0,<3.0.0
 
 # The transport layer is imported by the event-loop offloading tests; fastapi

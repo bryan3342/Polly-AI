@@ -66,7 +66,7 @@ class ConnectionManager:
 
     Collaborators are injected rather than constructed here: this layer is about
     transport, and building the analysis stack was both a second responsibility
-    and the reason importing this module pulled in TensorFlow, OpenCV, librosa
+    and the reason importing this module pulled in OpenCV, librosa, mediapipe
     and the Gemini SDK. See `app.container` for the wiring.
     """
 
@@ -230,15 +230,13 @@ class ConnectionManager:
             return
 
         try:
-            # Base64/JPEG decoding and DeepFace inference are both CPU-bound and
-            # synchronous. Run directly in this coroutine they blocked the whole
-            # event loop for every connected session on every frame, at one
-            # frame per second per client.
+            # Base64/JPEG decoding and emotion inference are both CPU-bound
+            # and synchronous. Run directly in this coroutine they blocked the
+            # whole event loop for every connected session on every frame.
             #
-            # The semaphore bounds how many inferences run at once: the
-            # underlying TensorFlow graph is not safely reentrant, and letting
-            # N clients each start an inference would thrash CPU and memory on
-            # a shared-CPU instance.
+            # The semaphore bounds how many inferences run at once: letting N
+            # clients each start one would thrash CPU and memory on a
+            # shared-CPU instance.
             async with self._inference_slots:
                 result = await asyncio.to_thread(self._analyze_frame_blocking, frame_data)
         except Exception:

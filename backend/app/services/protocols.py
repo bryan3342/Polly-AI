@@ -1,7 +1,7 @@
 """Interfaces the transport layer depends on.
 
 The WebSocket layer used to import the concrete services directly, which meant
-importing it pulled in TensorFlow, OpenCV, librosa and the Gemini SDK. Tests
+importing it pulled in OpenCV, librosa, mediapipe and the Gemini SDK. Tests
 that wanted to exercise transport had to inject fake modules into `sys.modules`
 before importing anything, which was a strong signal that the dependency ran the wrong
 way.
@@ -86,8 +86,8 @@ class SessionAnalyzer(Protocol):
 class EmotionResult:
     """The canonical 'nothing detected' emotion payload.
 
-    Lives here rather than in the DeepFace-backed service so the transport layer
-    and tests can reference the shape without importing the ML stack.
+    Lives here rather than in the emotion service so the transport layer and
+    tests can reference the shape without importing the ML stack.
     """
 
     @staticmethod

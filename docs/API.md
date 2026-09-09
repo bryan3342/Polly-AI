@@ -47,7 +47,9 @@ reply; malformed JSON gets an `error` reply and the connection stays open.
 ### Client → server
 
 #### `frame`
-A video frame to analyse for facial emotion. The frontend sends one per second.
+A video frame to analyse for facial emotion. The capture rate is set by the
+server and sent in `capture_settings` on connect: 5/sec by default, 1/sec on a
+fractional-CPU host (see `FRAME_INTERVAL_MS`).
 
 ```json
 { "type": "frame", "data": "data:image/jpeg;base64,...", "timestamp": 1690000000.0 }
@@ -123,16 +125,31 @@ client does not send it back.
 ```
 
 #### `emotion_update`
-One per analysed frame. `bounding_box` is `[x, y, width, height]` in source
-frame pixels. When no face is found, every field is null/false and
+One per analysed frame. When no face is found, every field is null/false and
 `face_detected` is `false`.
+
+`bounding_box` is `[x, y, width, height]` in source frame pixels. It can extend
+past the frame edges, so `x` and `y` may be negative and `x + width` may exceed
+the frame: YuNet reports the face's full extent even where part of it is out of
+shot. Clamp before drawing. (The Haar cascade this replaced never did that, so
+a consumer written against the old behaviour may assume it cannot happen. The
+bundled frontend is unaffected: it draws its overlay from its own in-browser
+detector, not from this field.)
+
+`emotions` always carries all seven keys. Two of them, `disgust` and `fear`,
+are not reliably detected by this model and should not be surfaced to a user;
+`UNRELIABLE` in `emotion_service.py` names them, and
+`backend/tests/eval/README.md` has the measurements.
 
 ```json
 {
   "type": "emotion_update",
   "frame_number": 12,
   "data": {
-    "emotions": { "happy": 0.98, "neutral": 0.01, "surprise": 0.0 },
+    "emotions": {
+      "angry": 0.0, "disgust": 0.0, "fear": 0.0, "happy": 0.98,
+      "sad": 0.0, "surprise": 0.01, "neutral": 0.01
+    },
     "dominant_emotion": "happy",
     "confidence": 0.98,
     "face_detected": true,

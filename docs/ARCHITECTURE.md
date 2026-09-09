@@ -44,9 +44,9 @@ Socket.IO, WebRTC, Tailwind, Nginx) that was never built, see issue #18.
 ### AI / analysis
 | Concern | Choice |
 |---|---|
-| Speech-to-text | Gemini audio understanding (`gemini-2.0-flash`) |
-| Coaching & feedback | Gemini (`gemini-2.0-flash-lite`) via `google-genai` |
-| Facial emotion | OpenCV Haar cascade for detection, DeepFace for classification |
+| Speech-to-text | Gemini audio understanding (`gemini-3.5-flash-lite`) |
+| Coaching & feedback | Gemini (`gemini-3.5-flash-lite`) via `google-genai` |
+| Facial emotion | OpenCV throughout: YuNet detects, FER+ classifies, both ONNX via `cv2.dnn` |
 | Voice/tone | librosa |
 | Audio decoding | ffmpeg |
 
@@ -73,10 +73,10 @@ Browser                                  Server (one process)
 ───────                                  ────────────────────
 getUserMedia
    │
-   ├── canvas frame, 1/sec ──▶ WS ──▶ process_frame
-   │                                    └─▶ to_thread ──▶ Haar detect
-   │                                                       └─▶ crop face
-   │                                                            └─▶ DeepFace
+   ├── canvas frame, 5/sec ──▶ WS ──▶ process_frame
+   │                                    └─▶ to_thread ──▶ YuNet detect
+   │                                                       └─▶ align + crop
+   │                                                            └─▶ FER+
    │   ◀── emotion_update ──────────────────────────────────────────┘
    │
    ├── MediaRecorder ──▶ audio_complete (whole recording, base64)
@@ -103,12 +103,13 @@ simple and means one thing to reconnect. The cost is that a large audio payload
 and the frame stream contend for the same socket.
 
 ### Blocking work runs on worker threads
-DeepFace inference, librosa feature extraction and both Gemini calls are
+Emotion inference, librosa feature extraction and both Gemini calls are
 synchronous. Run inline they froze the event loop, and therefore *every*
 connected session, for the duration of each call. They all go through
 `asyncio.to_thread`. Emotion inference is additionally bounded by a semaphore
-(`MAX_CONCURRENT_INFERENCES`, default 2) because the TensorFlow graph behind
-DeepFace is not safely reentrant and the default VM has one shared CPU.
+(`MAX_CONCURRENT_INFERENCES`, default 2): the default VM has one shared CPU, so
+a second concurrent inference splits the same sliver of it rather than adding
+throughput.
 
 ### Unmeasured components are omitted, never defaulted
 A failed voice analysis returns nulls and a `degraded` flag rather than a
@@ -132,9 +133,9 @@ librosa, cannot demux either, so uploads are transcoded to PCM WAV first.
 Recorded here so they stay decisions rather than drift.
 
 ### WebRTC vs WebSocket frames (issue #16), staying with WebSocket
-Sending base64 JPEG frames at 1/sec over the existing socket is inefficient
-(~33% base64 overhead, no inter-frame compression) but analysis only needs one
-frame per second, and DeepFace inference, not transport, is the bottleneck.
+Sending base64 JPEG frames over the existing socket is inefficient (~33% base64
+overhead, no inter-frame compression) but analysis needs only a handful of
+frames a second, and inference, not transport, is the bottleneck.
 WebRTC would add signalling, TURN and a media pipeline for no gain at this
 frame rate. Revisit if frame rate needs to rise or per-frame latency becomes
 user-visible.

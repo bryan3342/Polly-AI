@@ -3,7 +3,7 @@
 Everything else depends on the protocols in `app.services.protocols`. Wiring
 lives here so that swapping an implementation, a different STT provider, an
 in-memory repository for a test, is a change to this file only, and so
-importing the transport layer does not drag in TensorFlow, OpenCV, librosa and
+importing the transport layer does not drag in OpenCV, librosa, mediapipe and
 the Gemini SDK.
 
 This module is deliberately the only place that imports all of them.
@@ -87,9 +87,9 @@ def build_application() -> Application:
         )
         return ready
 
-    # Building the emotion model used to happen right here, during import. That
-    # made uvicorn's port bind wait for TensorFlow to load: on a small shared
-    # CPU that is tens of seconds of a host's startup budget spent before the
-    # health check can even be answered, and Cloud Run caps container startup at
-    # 4 minutes. The caller now schedules this in the background instead.
+    # Building the emotion models used to happen right here, during import.
+    # That made uvicorn's port bind wait for them to load, spending a host's
+    # startup budget before the health check could even be answered, and Cloud
+    # Run caps container startup at 4 minutes. The caller now schedules this in
+    # the background instead.
     return Application(manager=manager, warm_up=warm_up)

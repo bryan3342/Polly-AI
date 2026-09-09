@@ -16,7 +16,7 @@ Record a debate response and Polly AI analyses your **facial expressions, hand g
 
 ## Features
 
-- **Facial Emotion Detection**: Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). YuNet locates the face, the crop is rotated so the eyes are level, and FER+ classifies it. Accuracy is measured, not assumed: see `backend/tests/eval/README.md`
+- **Facial Emotion Detection**: YuNet locates the face, the crop is rotated so the eyes are level, and FER+ classifies it. Reliable for happy, angry, surprise and neutral; **disgust and fear are not usable** and should not be presented as findings. Accuracy is measured rather than assumed, including which classes fail and how: see `backend/tests/eval/README.md`
 - **Hand & Finger Tracking**: 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
 - **Live tracking indicators**: the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
 - **Speech-to-Text**: Recordings are transcribed by Gemini, verbatim, with filler words preserved
@@ -74,9 +74,9 @@ weights and starts both processes. After that it just starts them. `Ctrl-C`
 stops both. Add `GEMINI_API_KEY` to `backend/.env` for the transcript and
 coaching replies; everything else works without it.
 
-TensorFlow publishes no wheels for Python 3.14, so the script looks for 3.13,
-3.12 or 3.11 rather than whatever `python3` happens to be. `brew install
-python@3.13` if it cannot find one.
+The script looks for Python 3.13, 3.12 or 3.11 rather than whatever `python3`
+happens to be, because macOS often ships one newer than the ML wheels support.
+`brew install python@3.13` if it cannot find one.
 
 ### What running locally buys
 
@@ -166,7 +166,7 @@ The container reads `PORT` (default 8080), so it runs unchanged on Render, Fly
 to run the two processes separately.
 
 ### Prerequisites
-- **Python 3.11-3.13** (TensorFlow publishes no 3.14 wheels yet)
+- **Python 3.11-3.13**
 - **Node.js 18+**
 - **ffmpeg**: required to decode browser audio. `brew install ffmpeg` (macOS) or
   `sudo apt install ffmpeg` (Debian/Ubuntu). Without it, transcription and voice
@@ -190,12 +190,14 @@ python3 -m venv venv
 source venv/bin/activate   # macOS/Linux
 # venv\Scripts\activate    # Windows
 
-# Install dependencies. Two files: deepface must be installed without its
-# dependency closure so it does not pull in the full tensorflow and
-# opencv-python wheels on top of the -cpu/-headless ones. See
-# requirements-nodeps.txt for why.
+# Install dependencies. Two files: mediapipe must be installed without its
+# dependency closure so it does not pull opencv-contrib-python in on top of the
+# pinned headless build. See requirements-nodeps.txt for why.
 pip install -r requirements.txt
 pip install --no-deps -r requirements-nodeps.txt
+
+# Download the models (YuNet, FER+, MediaPipe hand landmarker)
+python scripts/fetch_models.py
 
 # Configure environment
 cp .env.example .env

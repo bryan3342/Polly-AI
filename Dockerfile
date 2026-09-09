@@ -26,39 +26,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python deps, in two passes.
 #
-# Pass 1 installs everything normally, including the tensorflow-cpu and
-# opencv-python-headless variants. Pass 2 installs deepface and the detector
-# packages with --no-deps, which is what stops pip from re-installing the full
-# `tensorflow` and `opencv-python` wheels on top of the variants. See
-# requirements-nodeps.txt for the full reasoning.
+# Pass 1 installs everything normally. Pass 2 installs mediapipe with --no-deps,
+# which is what stops pip from re-installing opencv-contrib-python on top of the
+# pinned opencv-python-headless. See requirements-nodeps.txt for the reasoning.
+#
+# This used to be a much bigger deal: tensorflow, deepface, mtcnn, retina-face
+# and tf-keras all needed the same treatment. Emotion classification runs on an
+# ONNX model through cv2.dnn now, so all of that is gone.
 COPY backend/requirements.txt backend/requirements-nodeps.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir --no-deps -r requirements-nodeps.txt
 
-# Keep the model cache at a fixed, world-readable path. DeepFace defaults to
-# $HOME/.deepface, and build-time and run-time users differ on some hosts
-# (Hugging Face Spaces runs as uid 1000), which would silently re-download the
-# weights on first request: the exact failure this bake exists to prevent.
-ENV DEEPFACE_HOME=/app
-
-# Bake the emotion model weights into the image.
-#
-# DeepFace fetches them from a remote host the first time a frame is analysed.
-# In a fresh container that made the first user wait for a download, and made
-# emotion detection depend on a third-party host being reachable at request
-# time: a runtime failure mode for something that is really a build input.
-# The build also has to prove the trimmed install actually works. Because
-# deepface is installed with --no-deps, a missing transitive import surfaces
-# only when the code path runs -- and CI never runs it, since the unit suite
-# deliberately excludes the ML stack. So the real entry point is exercised here:
-# if deepface gains an eager import that requirements.txt does not cover, this
-# fails the build instead of every user's first frame.
-COPY backend/scripts/verify_emotion_stack.py /tmp/
-RUN python /tmp/verify_emotion_stack.py \
-    && chmod -R a+rX /app/.deepface
-
-# Backend code
+# Backend code. Before the model fetch, because both scripts below live in it
+# and verify_emotion_stack.py imports the real service.
 COPY backend/ .
+
+# Bake the models into the image, then prove the trimmed install runs.
+#
+# The models (YuNet face detection, the FER+ emotion classifier, the MediaPipe
+# hand landmarker) are downloaded rather than vendored. Fetching them here makes
+# them a build input: a fresh container would otherwise make the first user wait
+# for the download, and would leave the feature depending on a third-party host
+# being reachable at request time.
+#
+# The verify step is the one that has to run *after* the fetch. mediapipe is
+# installed with --no-deps, so a missing transitive import surfaces only when
+# the code path runs, and CI never runs it because the unit suite deliberately
+# excludes the ML stack. It also fails the build if a model downloaded as an
+# error page, or if YuNet is missing and detection would quietly fall back to
+# the Haar cascade in production.
+#
+# World-readable because build-time and run-time users differ on some hosts
+# (Hugging Face Spaces runs as uid 1000), which would otherwise re-download the
+# models on first request: the exact failure this bake exists to prevent.
+RUN python scripts/fetch_models.py \
+    && python scripts/verify_emotion_stack.py \
+    && chmod -R a+rX /app/.models
 
 # Frontend build output
 COPY --from=frontend-build /build/dist /app/static

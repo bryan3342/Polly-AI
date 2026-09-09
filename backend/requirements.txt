@@ -14,32 +14,22 @@ google-genai>=1.0.0,<3.0.0
 
 # Computer Vision & Emotion Detection
 #
-# The -headless and -cpu variants are deliberate, and the Dockerfile installs
-# deepface with --no-deps to keep them (see the comment there). Both are
-# drop-in: the server never opens a GUI window, and Cloud Run has no GPU.
+# OpenCV is the whole of it now. Face detection (YuNet) and emotion
+# classification (FER+) are both small ONNX files run through cv2.dnn, so the
+# vision stack is one dependency rather than a deep learning framework.
 #
-# tensorflow-cpu publishes x86_64 wheels only. On aarch64 the plain `tensorflow`
-# wheel is already CPU-only and roughly half the size of the x86_64 one, so the
-# marker costs nothing on ARM while keeping Apple Silicon dev machines working.
-tensorflow-cpu>=2.16.0,<3.0.0; platform_machine == "x86_64"
-tensorflow>=2.16.0,<3.0.0; platform_machine != "x86_64"
+# That is what removed tensorflow: it was here only to run DeepFace's emotion
+# classifier, which FER+ replaced. It weighed 1.1 GB installed and carried
+# deepface's entire dependency closure with it (pandas, gdown, lightphe,
+# lightdsa, werkzeug, joblib, lz4, tqdm, requests), plus mtcnn, retina-face and
+# tf-keras. None of it is reachable any more. See backend/tests/eval/README.md
+# for the measurements that justified the swap.
+#
+# The -headless variant is deliberate: the server never opens a GUI window.
+# Pinned below 5.0 because OpenCV 5 removed cv2.CascadeClassifier, which is
+# still the fallback detector when the YuNet model file is absent.
 opencv-python-headless>=4.8.0,<5.0.0
 pillow>=12.3.0,<13.0.0
-
-# deepface's own dependency closure. deepface itself lives in
-# requirements-nodeps.txt because it must be installed with --no-deps; these are
-# the packages it imports at module load, so they are installed normally here.
-# Flask, flask-cors, gunicorn and fire back its REST API and CLI, which this app
-# never reaches, so they are omitted.
-pandas>=2.0.0,<4.0.0
-gdown>=5.0.0,<7.0.0
-tqdm>=4.60.0,<5.0.0
-requests>=2.27.1,<3.0.0
-lightphe>=0.0.15,<0.1.0
-lightdsa>=0.0.3,<0.1.0
-werkzeug>=3.0.0,<4.0.0
-joblib>=1.2,<2.0.0
-lz4>=4.0.0,<6.0.0
 
 # What mediapipe imports at load. It is installed with --no-deps (see
 # requirements-nodeps.txt) because its own dependency list names
