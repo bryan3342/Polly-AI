@@ -1,0 +1,105 @@
+{
+  "_comment": "A second, independent opinion on the same 20 fixtures. Four agents were shown the images blind, with no access to the source labels or to each other, and asked for a first choice, a second choice and a confidence of 1-5. It exists because the source labels are crowd-sourced and turn out to be unreliable: they agree with this pass on only 12 of 20, and on none of the six disgust or fear fixtures. Scoring against the subset where both agree is the closest thing here to a trustworthy measurement.",
+  "labels": {
+    "Anna_Jones_0001.jpg": {
+      "first": "sad",
+      "second": "neutral",
+      "conf": 3
+    },
+    "Arnold_Schwarzenegger_0042.jpg": {
+      "first": "happy",
+      "second": "neutral",
+      "conf": 5
+    },
+    "Augustin_Calleri_0004.jpg": {
+      "first": "surprise",
+      "second": "fear",
+      "conf": 3
+    },
+    "Charles_Moose_0001.jpg": {
+      "first": "angry",
+      "second": "sad",
+      "conf": 4
+    },
+    "Cherie_Blair_0002.jpg": {
+      "first": "surprise",
+      "second": "happy",
+      "conf": 3
+    },
+    "Ciro_Gomes_0004.jpg": {
+      "first": "neutral",
+      "second": "sad",
+      "conf": 3
+    },
+    "David_Nalbandian_0006.jpg": {
+      "first": "angry",
+      "second": "disgust",
+      "conf": 4
+    },
+    "Doris_Schroeder_0002.jpg": {
+      "first": "happy",
+      "second": "neutral",
+      "conf": 4
+    },
+    "Gala_Leon_Garcia_0001.jpg": {
+      "first": "happy",
+      "second": "angry",
+      "conf": 3
+    },
+    "James_Schultz_0001.jpg": {
+      "first": "sad",
+      "second": "fear",
+      "conf": 3
+    },
+    "Jan_Ullrich_0002.jpg": {
+      "first": "angry",
+      "second": "surprise",
+      "conf": 4
+    },
+    "Jennifer_Capriati_0037.jpg": {
+      "first": "sad",
+      "second": "fear",
+      "conf": 3
+    },
+    "Mirela_Manjani_0001.jpg": {
+      "first": "surprise",
+      "second": "fear",
+      "conf": 3
+    },
+    "Monica_Seles_0006.jpg": {
+      "first": "angry",
+      "second": "disgust",
+      "conf": 4
+    },
+    "Nate_Blackwell_0001.jpg": {
+      "first": "angry",
+      "second": "surprise",
+      "conf": 4
+    },
+    "Patricia_Clarkson_0001.jpg": {
+      "first": "happy",
+      "second": "neutral",
+      "conf": 5
+    },
+    "Paula_Radcliffe_0004.jpg": {
+      "first": "sad",
+      "second": "disgust",
+      "conf": 3
+    },
+    "Robert_Blake_0004.jpg": {
+      "first": "sad",
+      "second": "angry",
+      "conf": 4
+    },
+    "Stephanie_Cohen_Aloro_0001.jpg": {
+      "first": "angry",
+      "second": "disgust",
+      "conf": 3
+    },
+    "Zumrati_Juma_0001.jpg": {
+      "first": "neutral",
+      "second": "sad",
+      "conf": 3
+    }
+  }
+}
