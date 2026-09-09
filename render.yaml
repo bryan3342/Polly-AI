@@ -43,6 +43,12 @@ services:
       # Capture rate, served to the browser when it connects. Measured here:
       # ~600 ms per frame, so one frame a second is the ceiling, against the
       # 100 ms (10 fps) a laptop sustains at full resolution.
+      #
+      # These timings, and the DETECT_WIDTH one below, were measured against the
+      # old Haar plus DeepFace pipeline. Detection is now YuNet, which is faster
+      # than Haar on a developer machine (2.8 ms against 3.8 ms at 350x350), so
+      # both are probably conservative. They are left as measured rather than
+      # guessed at: re-measure on this instance before loosening them.
       - key: FRAME_INTERVAL_MS
         value: 1000
       - key: IDLE_FRAME_INTERVAL_MS

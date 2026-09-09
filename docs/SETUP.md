@@ -24,8 +24,11 @@ cp .env.example .env          # then add your GEMINI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
-The first request that hits emotion detection downloads the DeepFace model
-weights (a few hundred MB), expect the first frame to take a while.
+`run-local.sh` fetches the models up front. If you set the venv up by hand,
+run `python scripts/fetch_models.py` first: it downloads YuNet (0.2 MB), the
+FER+ emotion classifier (35 MB) and the MediaPipe hand landmarker (7.8 MB).
+Without them the server still starts, but emotion detection is unavailable and
+face detection falls back to a less accurate Haar cascade.
 
 Frontend:
 
@@ -70,7 +73,7 @@ from collection by `pytest.ini` and must never run in CI.
 | Report says "Speech could not be transcribed" | No `GEMINI_API_KEY`, or ffmpeg is missing |
 | Confidence shows ", " and tone reads "unavailable" | Voice analysis degraded, usually ffmpeg missing |
 | Emotion chip never appears | No face detected: check lighting, and that the camera is not disabled in the toolbar |
-| First frame takes ~30s | One-off DeepFace weight download |
+| Emotion chip never appears, and the log says the models could not load | `scripts/fetch_models.py` was never run |
 | `Format not recognised` in logs | ffmpeg not on `PATH` |
 
 ## Deploying
@@ -105,10 +108,10 @@ method.
 Add `GEMINI_API_KEY` in the dashboard for transcription and coaching. Without it
 the camera, face detection, emotion tracking and voice measurement still work.
 
-Expect it to be slow. A tenth of a shared core runs a DeepFace inference per
-video frame, so the emotion readout updates every few seconds rather than every
-second, and the post-recording report takes appreciably longer than it does
-locally. Frames are dropped rather than queued when inference cannot keep up, so
+Expect it to be slow. A tenth of a shared core runs an emotion inference per
+video frame, so the emotion readout updates every few seconds rather than at the
+configured rate, and the post-recording report takes appreciably longer than it
+does locally. Frames are dropped rather than queued when inference cannot keep up, so
 this shows up as a sparser readout instead of a growing lag.
 
 #### Cloud Run, more CPU, but needs a card
@@ -138,7 +141,8 @@ HF_TOKEN=hf_... ./deploy/huggingface/deploy.sh <your-hf-username> polly-ai
 The script creates the Space if it does not exist and updates it if it does, so
 it is safe to re-run for every deploy.
 
-The first build takes roughly ten minutes, the TensorFlow layer dominates.
+The build used to take roughly ten minutes with TensorFlow dominating it. That
+dependency is gone, so it is now considerably quicker.
 Afterwards the app is at `https://<username>-polly-ai.hf.space`.
 
 For transcription and coaching, add `GEMINI_API_KEY` under the Space's
@@ -151,9 +155,9 @@ Storage on a Space is ephemeral: saved sessions do not survive a restart.
 
 The frontend can be hosted separately, Cloudflare Pages serves it free, but
 **the backend cannot run there**. Pages runs static assets plus Workers (V8
-isolates, 128 MB, no arbitrary binaries); this backend needs TensorFlow,
-OpenCV, librosa and an `ffmpeg` binary. Python Workers run on Pyodide and
-support none of them. The backend needs a container host.
+isolates, 128 MB, no arbitrary binaries); this backend needs OpenCV, librosa,
+mediapipe and an `ffmpeg` binary. Python Workers run on Pyodide and support none
+of them. The backend needs a container host.
 
 Frontend, on Cloudflare Pages:
 

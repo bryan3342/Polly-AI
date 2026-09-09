@@ -35,24 +35,26 @@ def _installed(name: str) -> bool:
 def check_no_duplicate_wheels() -> int:
     """Fail if a substituted wheel got reinstalled alongside its replacement.
 
-    Several packages in this tree declare hard requirements on `tensorflow` and
-    `opencv-python` -- deepface does, and so does tf-keras, which is the easy one
-    to miss. Installing any of them normally pulls the originals back in *on top
-    of* the -cpu/-headless variants, leaving the image larger than it was before
-    the substitution rather than smaller. Nothing fails at runtime when that
-    happens; the image just quietly grows by ~1.8 GB.
+    mediapipe declares `opencv-contrib-python` with no upper bound. Installed
+    normally it resolves to OpenCV 5 and lands a second cv2 on top of the pinned
+    opencv-python-headless, so --no-deps is what keeps the substitution.
 
-    Worth asserting here specifically because it is architecture-dependent: on
-    aarch64 plain `tensorflow` is the correct package, so this class of mistake
-    is invisible until the image is built for the x86_64 that Cloud Run runs.
+    Also fails if tensorflow comes back. Nothing needs it any more, emotion
+    classification runs on an ONNX model through cv2.dnn, and it weighed 1.1 GB
+    installed. A new dependency quietly pulling it back in would undo that
+    without breaking anything, which is exactly the kind of regression nothing
+    else here would notice.
     """
     problems = []
 
-    if _installed("tensorflow") and _installed("tensorflow-cpu"):
-        problems.append(
-            "both `tensorflow` and `tensorflow-cpu` are installed -- something "
-            "depends on `tensorflow` and was not installed with --no-deps"
-        )
+    for name in ("tensorflow", "tensorflow-cpu", "deepface", "tf-keras"):
+        if _installed(name):
+            problems.append(
+                f"`{name}` is installed. Emotion classification runs on ONNX "
+                f"through cv2.dnn; nothing should be pulling the TensorFlow "
+                f"stack back in (it was 1.1 GB). Find what depends on it and "
+                f"install that with --no-deps, or drop it"
+            )
 
     # Any other distribution that also ships `cv2`. They install over each
     # other rather than beside each other -- measured: with

@@ -114,14 +114,12 @@ class Config:
     # at once, not how far behind the server may fall. More slots means fewer
     # dropped frames when several arrive together.
     #
-    # Two suits a developer machine: it absorbs bursts without letting the
-    # TensorFlow graph -- which is not safely reentrant -- be entered from many
-    # threads at once. A fractional-CPU host should set 1, where a second
-    # concurrent inference splits the same sliver of CPU rather than adding
-    # throughput.
+    # Two suits a developer machine: it absorbs bursts without oversubscribing
+    # the CPU. A fractional-CPU host should set 1, where a second concurrent
+    # inference splits the same sliver of CPU rather than adding throughput.
     MAX_CONCURRENT_INFERENCES = int(os.getenv("MAX_CONCURRENT_INFERENCES", 2))
 
-    # Width, in pixels, of the copy the Haar cascade searches for a face.
+    # Width, in pixels, of the copy the detector searches for a face.
     #
     # Locating the face dominates the per-frame cost, and it scales with pixel
     # count. Measured on a tenth of a shared core: searching a 640x480 frame
@@ -134,7 +132,7 @@ class Config:
     # 0 disables downscaling and searches the frame as captured, which is the
     # default here: on a developer machine full-resolution detection measured
     # ~30 ms, so there is nothing to buy by trading accuracy away. Motion blur
-    # is what a Haar cascade handles worst, and downscaling only compounds it.
+    # is what the detector handles worst, and downscaling only compounds it.
     #
     # Hosted deployments set a width; see render.yaml, where searching full
     # resolution measured 2231 ms against a 1000 ms frame budget. Use

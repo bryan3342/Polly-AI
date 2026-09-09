@@ -19,9 +19,12 @@ BACKEND_PORT=${BACKEND_PORT:-8000}
 FRONTEND_PORT=${FRONTEND_PORT:-5173}
 VENV=backend/venv
 
-# TensorFlow publishes no wheels for Python 3.14 yet, and macOS ships a python3
-# that is often newer than TensorFlow supports. Pick a version that works rather
-# than failing halfway through an install.
+# macOS ships a python3 that is often newer than the ML wheels support, so pick
+# a version known to work rather than failing halfway through an install.
+#
+# TensorFlow used to set this ceiling. It is gone, and the whole requirements
+# set now resolves on 3.14 as well, but resolving is not running: 3.14 is left
+# out until someone has actually run a session on it.
 find_python() {
     for candidate in python3.13 python3.12 python3.11; do
         if command -v "$candidate" >/dev/null 2>&1; then echo "$candidate"; return; fi
@@ -32,7 +35,7 @@ find_python() {
 setup() {
     local py; py=$(find_python)
     if [ -z "$py" ]; then
-        echo "Need Python 3.11-3.13 (TensorFlow publishes no 3.14 wheels)." >&2
+        echo "Need Python 3.11-3.13." >&2
         echo "  brew install python@3.13" >&2
         exit 1
     fi
@@ -41,14 +44,14 @@ setup() {
     "$py" -m venv "$VENV"
     "$VENV/bin/pip" install --quiet --upgrade pip
 
-    echo "==> Installing backend dependencies (this pulls TensorFlow; give it a minute)"
+    echo "==> Installing backend dependencies"
     "$VENV/bin/pip" install --quiet -r backend/requirements.txt
-    # deepface must skip its dependency closure or it reinstalls the full
-    # tensorflow and opencv-python wheels over the variants above.
+    # mediapipe must skip its dependency closure or it reinstalls
+    # opencv-contrib-python over the pinned headless build.
     "$VENV/bin/pip" install --quiet --no-deps -r backend/requirements-nodeps.txt
 
-    echo "==> Caching model weights (emotion, and the hand landmarker)"
-    (cd backend && DEEPFACE_HOME="$PWD" "../$VENV/bin/python" scripts/fetch_models.py)
+    echo "==> Caching models (face detection, emotion, hand landmarker)"
+    (cd backend && "../$VENV/bin/python" scripts/fetch_models.py)
 
     echo "==> Installing frontend dependencies"
     (cd frontend && npm install --silent)
@@ -76,10 +79,6 @@ if [ ! -f backend/.env ]; then
     echo
 fi
 
-# The weights are baked next to the backend so a fresh run never waits on a
-# download, matching what the container image does.
-export DEEPFACE_HOME="$PWD/backend"
-
 cleanup() { echo; echo "Stopping..."; kill 0 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
 
@@ -91,7 +90,7 @@ echo "==> Frontend http://localhost:$FRONTEND_PORT"
 (cd frontend && VITE_WS_URL="ws://localhost:$BACKEND_PORT" \
     npm run dev -- --port "$FRONTEND_PORT" --strictPort) &
 
-# Give uvicorn time to import TensorFlow before pointing a browser at it.
+# Give uvicorn time to load the models before pointing a browser at it.
 for _ in $(seq 1 60); do
     if curl -sf "http://localhost:$BACKEND_PORT/api/health" >/dev/null 2>&1; then break; fi
     sleep 1

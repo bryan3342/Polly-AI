@@ -34,11 +34,6 @@ _site/
 .jekyll-cache/
 Gemfile.lock
 
-# DeepFace model weights, downloaded on first run (run-local.sh caches them here,
-# and the Dockerfile bakes them into the image). ~6 MB of binary that the code
-# fetches for itself; nothing here should be a source artifact.
-backend/.deepface/
-
 # Models fetched by scripts/fetch_models.py: the MediaPipe hand landmarker
 # (~7.5 MB), YuNet face detection (~0.2 MB) and the FER+ emotion classifier
 # (~35 MB). Binaries the code can fetch for itself.

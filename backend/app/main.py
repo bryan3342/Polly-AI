@@ -28,19 +28,19 @@ manager = _application.manager
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Warm the emotion model without holding up the port bind.
+    """Warm the emotion models without holding up the port bind.
 
     Warm-up used to run during import, so uvicorn could not bind its socket
-    until TensorFlow had finished loading and building the model. On a small
-    shared CPU that is tens of seconds during which the host sees a container
-    that is not listening -- and hosts bound that: Cloud Run allows at most 4
-    minutes for container startup before it calls the revision failed.
+    until the models had finished loading. On a small shared CPU that is time
+    during which the host sees a container that is not listening -- and hosts
+    bound that: Cloud Run allows at most 4 minutes for container startup before
+    it calls the revision failed.
 
     It cannot go directly in this lifespan handler either: uvicorn runs lifespan
     startup to completion *before* it binds. So it is dispatched to a worker
-    thread (it is synchronous, CPU-bound TensorFlow work) and simply left to
-    finish on its own. `/api/health` answers immediately; a frame that arrives
-    first waits for the same build via EmotionService.warm_up.
+    thread (it is synchronous, CPU-bound work) and simply left to finish on its
+    own. `/api/health` answers immediately; a frame that arrives first waits for
+    the same build via EmotionService.warm_up.
     """
     task = asyncio.create_task(asyncio.to_thread(_application.warm_up))
     try:
