@@ -3,6 +3,17 @@ frontend/node_modules
 frontend/dist
 backend/venv
 backend/__pycache__
+
+# Fetched at build time by scripts/fetch_models.py. Copying a developer's local
+# copy in instead would make the image depend on whatever they happened to have
+# on disk, and would silently skip the fetch, which is the step that proves the
+# models are the ones the build intended.
+backend/.models
+
+# The accuracy eval: fixtures, the downloadable tuning pool and its labels.
+# Several MB of photographs that a production image has no use for. Run it from
+# a checkout, not the image; see backend/tests/eval/README.md.
+backend/tests
 **/__pycache__
 *.pyc
 # Match at any depth, a bare `.env` pattern only matches the context root,

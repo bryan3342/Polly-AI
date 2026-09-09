@@ -143,6 +143,35 @@ it is safe to re-run for every deploy.
 
 The build used to take roughly ten minutes with TensorFlow dominating it. That
 dependency is gone, so it is now considerably quicker.
+
+### Building the image on Apple Silicon
+
+`docker build` fails natively on an arm64 machine, and has nothing to do with
+this app:
+
+```
+ERROR: Could not find a version that satisfies the requirement mediapipe<1.0.0,>=0.10.30
+```
+
+mediapipe publishes linux wheels for x86_64 only until 1.0; the first release
+with a linux aarch64 wheel is 1.0.0, and the pin stops below it because 1.x
+aborts the process on macOS (see requirements-nodeps.txt). Cloud Run, Render and
+Spaces all run x86_64, so this affects local image builds only.
+
+Build for the deployment architecture instead, which needs buildx:
+
+```bash
+docker buildx build --platform linux/amd64 -t polly-ai .
+```
+
+The backend half of the build has been verified this way. If you only want to
+check the Python side, that is quicker than a full image build:
+
+```bash
+docker run --rm --platform linux/amd64 -v "$PWD/backend:/src:ro" python:3.12-slim \
+  bash -c 'cd /src && pip install -q -r requirements.txt \
+           && pip install -q --no-deps -r requirements-nodeps.txt'
+```
 Afterwards the app is at `https://<username>-polly-ai.hf.space`.
 
 For transcription and coaching, add `GEMINI_API_KEY` under the Space's
