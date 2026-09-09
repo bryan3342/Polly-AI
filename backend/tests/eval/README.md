@@ -123,6 +123,24 @@ and it is why balanced accuracy (51%) is well below top-1 (74%).
 
 **Confidence still does not track correctness** well enough to threshold on.
 
+## Checked through the real server, not just the harness
+
+The eval calls `analyze_frame` directly. To confirm the same answers survive the
+transport, the fixtures were also pushed through a running server over the
+WebSocket, as `{"type": "frame", "data": "data:image/jpeg;base64,..."}`:
+
+```
+sent happy    -> happy     conf 1.00   217 ms   (first frame, models still warming)
+sent surprise -> surprise  conf 0.63    21 ms
+sent angry    -> angry     conf 0.55    16 ms
+sent surprise -> surprise  conf 0.46    15 ms
+```
+
+Same predictions as the harness, and 15 to 21 ms round trip once warm, against a
+200 ms frame interval. The first frame is the warm-up cost the background
+warm-up exists to hide, visible here because the request arrived before it
+finished.
+
 ## Caveats
 
 - The trusted subset is 104 images, and its disgust and fear cells are 1 and 2

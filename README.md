@@ -16,7 +16,7 @@ Record a debate response and Polly AI analyses your **facial expressions, hand g
 
 ## Features
 
-- **Facial Emotion Detection**: Real-time emotion tracking (happy, sad, angry, neutral, surprised, etc.). YuNet locates the face, the crop is rotated so the eyes are level, and FER+ classifies it. Accuracy is measured, not assumed: see `backend/tests/eval/README.md`
+- **Facial Emotion Detection**: YuNet locates the face, the crop is rotated so the eyes are level, and FER+ classifies it. Reliable for happy, angry, surprise and neutral; **disgust and fear are not usable** and should not be presented as findings. Accuracy is measured rather than assumed, including which classes fail and how: see `backend/tests/eval/README.md`
 - **Hand & Finger Tracking**: 21 landmarks per hand via MediaPipe, feeding gesture metrics into the score. OpenCV has no hand model; the cascades that exist give a box, not fingers
 - **Live tracking indicators**: the face box and hand skeleton are drawn from the server's own analysis, so an indicator appearing is evidence that frame was measured
 - **Speech-to-Text**: Recordings are transcribed by Gemini, verbatim, with filler words preserved
