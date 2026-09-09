@@ -1,28 +1,27 @@
-"""Bake the emotion weights into the image, and prove the trimmed stack runs.
+"""Prove the trimmed stack runs, in the image, before anyone records into it.
 
 Two jobs, deliberately in one build step:
 
-1. Build the DeepFace emotion model so its weights are baked into the image
-   rather than downloaded during a user's first frame.
-2. Exercise the real inference path end to end.
+1. Check no substituted wheel got reinstalled alongside its replacement.
+2. Exercise the real inference path end to end, models and all.
 
-(2) exists because deepface is installed with ``--no-deps`` (see
-requirements-nodeps.txt). That substitution is what keeps tensorflow-cpu and
-opencv-python-headless in place, but it also means pip is no longer checking
-deepface's imports for us -- and the unit suite cannot cover the gap, since CI
-deliberately installs none of the ML stack. Without this script a new eager
-import inside deepface would sail through the build and fail on the first frame
-of the first real session.
+(2) exists because the unit suite cannot cover it: CI deliberately installs none
+of the ML stack, so nothing else in the tree would notice a missing model file,
+an OpenCV build without the DNN module, or an ONNX file that downloaded as a
+GitHub error page. All three fail identically at runtime, on the first frame of
+someone's first session, and all three are caught here instead.
 
 Run by the Dockerfile. A non-zero exit fails the build, which is the point.
 """
 
 import sys
 from importlib.metadata import PackageNotFoundError, distribution
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2
 import numpy as np
-from deepface import DeepFace
 
 
 def _installed(name: str) -> bool:
@@ -77,8 +76,9 @@ def check_no_duplicate_wheels() -> int:
         if int(cv2.__version__.split(".")[0]) >= 5:
             problems.append(
                 f"OpenCV {cv2.__version__} is active. 5.x dropped "
-                f"cv2.CascadeClassifier, which the emotion service detects "
-                f"faces with; requirements.txt pins below it for that reason"
+                f"cv2.CascadeClassifier, which the emotion service falls back "
+                f"to when YuNet is unavailable; requirements.txt pins below it "
+                f"for that reason"
             )
     except Exception as exc:
         problems.append(f"could not determine the OpenCV version: {exc}")
@@ -105,27 +105,40 @@ def main() -> int:
     cascade.detectMultiScale(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), 1.1, 5,
                              minSize=(30, 30))
 
-    # Downloads and caches the weights under DEEPFACE_HOME.
-    DeepFace.build_model("Emotion", task="facial_attribute")
-
-    # The same call EmotionService.analyze_frame makes, including
-    # detector_backend="skip" -- the path that decides which of deepface's
-    # optional imports are actually reachable.
-    result = DeepFace.analyze(
-        cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-        actions=["emotion"],
-        enforce_detection=False,
-        detector_backend="skip",
-        silent=True,
+    # The real service, so both ONNX models are loaded the way a session loads
+    # them. warm_up() swallows its own failures by design -- a broken model must
+    # not stop the server booting -- so its return value is the signal here.
+    from app.services.emotion_service import (
+        EMOTION_PATH, EMOTIONS, YUNET_PATH, EmotionService, empty_result,
     )
-    analysis = result[0] if isinstance(result, list) else result
 
-    if "emotion" not in analysis or not analysis.get("dominant_emotion"):
-        print(f"FAIL: unexpected DeepFace result: {analysis}", file=sys.stderr)
+    for path in (YUNET_PATH, EMOTION_PATH):
+        if not path.exists():
+            print(f"FAIL: {path} is missing; run scripts/fetch_models.py",
+                  file=sys.stderr)
+            return 1
+
+    service = EmotionService()
+    if not service.warm_up():
+        print("FAIL: the emotion models did not load; see the logged traceback",
+              file=sys.stderr)
         return 1
 
-    print(f"OK: cv2 {cv2.__version__}, emotion model ready "
-          f"({len(analysis['emotion'])} classes)")
+    if service._detector is None:
+        print("FAIL: YuNet did not load, so detection would silently fall back "
+              "to the Haar cascade in production", file=sys.stderr)
+        return 1
+
+    # A blank frame has no face in it, so this asserts the shape of the answer
+    # rather than its content: the path ran and produced the payload the
+    # transport layer expects.
+    result = service.analyze_frame(frame)
+    if set(result) != set(empty_result()):
+        print(f"FAIL: unexpected result shape: {sorted(result)}", file=sys.stderr)
+        return 1
+
+    print(f"OK: cv2 {cv2.__version__}, YuNet + FER+ ready "
+          f"({len(EMOTIONS)} classes)")
     return 0
 
 

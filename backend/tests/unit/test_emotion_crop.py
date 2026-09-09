@@ -1,9 +1,12 @@
 """Face cropping geometry for emotion classification.
 
-DeepFace was called with `detector_backend="skip"`, which means "this input is
-already a cropped face" -- but it was handed the entire video frame. The
-detected bounding box was used only to draw the overlay, so emotion scores were
-computed over the whole room: wall colour, clothing, anything in shot (#26).
+The classifier is handed an already-cropped face. It used to be handed the
+entire video frame, with the detected bounding box used only to draw the
+overlay, so emotion scores were computed over the whole room: wall colour,
+clothing, anything in shot (#26).
+
+The geometry here is deliberately testable without the ML stack, which CI does
+not install.
 """
 
 import importlib
@@ -37,10 +40,13 @@ def _fake_resize(img, size, interpolation=None):
 
 _stub("cv2", data=types.SimpleNamespace(haarcascades=""),
       CascadeClassifier=lambda *a, **k: None, cvtColor=lambda img, code: img,
-      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1, INTER_AREA=3, resize=_fake_resize,
+      COLOR_BGR2GRAY=0, COLOR_BGR2RGB=1, INTER_AREA=3, INTER_LINEAR=1,
+      BORDER_REPLICATE=1, resize=_fake_resize, flip=lambda img, code: img,
+      dnn=types.SimpleNamespace(readNetFromONNX=lambda path: object()),
+      FaceDetectorYN=types.SimpleNamespace(create=lambda *a, **k: object()),
+      getRotationMatrix2D=lambda c, a, s: np.eye(2, 3),
+      warpAffine=lambda img, m, size, **k: img,
       imencode=lambda ext, img: (True, types.SimpleNamespace(tobytes=lambda: b"jpeg")))
-_stub("deepface", DeepFace=types.SimpleNamespace(
-    analyze=lambda *a, **k: [], build_model=lambda *a, **k: object()))
 _pil_image = _stub("PIL.Image", Image=type("Image", (), {}), open=lambda *a, **k: None)
 _stub("PIL", Image=_pil_image)
 
@@ -137,16 +143,41 @@ class TestLargestFaceSelection:
 
 
 def _bare_service():
-    """An EmotionService without the OpenCV/TensorFlow constructor.
+    """An EmotionService without the OpenCV constructor.
 
     `__init__` loads a Haar cascade from disk, which these tests neither need
     nor have. Only the warm-up concurrency state is set up by hand.
     """
     service = EmotionService.__new__(EmotionService)
     service.face_cascade = None
+    service._detector = None
+    service._classifier = None
     service._model_lock = threading.Lock()
     service._model_ready = False
     return service
+
+
+def _loadable(monkeypatch, service, fail_times=0):
+    """Make the two model loads succeed, or fail the first `fail_times` calls.
+
+    Both models are loaded from disk in `_build_models`; these tests are about
+    the concurrency and retry behaviour around that, not the files themselves.
+    Returns the list that records each attempt.
+    """
+    import app.services.emotion_service as module
+
+    attempts = []
+
+    def load_classifier(path):
+        attempts.append(1)
+        if len(attempts) <= fail_times:
+            raise RuntimeError("no network")
+        return object()
+
+    monkeypatch.setattr(module.cv2.dnn, "readNetFromONNX", load_classifier)
+    monkeypatch.setattr(type(service), "_load_detector", lambda self: None)
+    monkeypatch.setattr(service, "_classify", lambda face: np.zeros(7), raising=False)
+    return attempts
 
 
 class TestWarmUp:
@@ -162,52 +193,51 @@ class TestWarmUp:
 
     def test_warm_up_reports_success(self, monkeypatch):
         service = _bare_service()
-        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+        _loadable(monkeypatch, service)
 
         assert service.warm_up() is True
+
+    def test_warm_up_is_free_the_second_time(self, monkeypatch):
+        """The models are built once, not per frame."""
+        service = _bare_service()
+        attempts = _loadable(monkeypatch, service)
+
+        assert service.warm_up() is True
+        assert service.warm_up() is True
+        assert len(attempts) == 1
 
     def test_warm_up_failure_does_not_stop_startup(self, monkeypatch):
         """Every other feature still works without emotion detection, so a
         failure here is logged and left to the per-frame error handling."""
-        import app.services.emotion_service as module
-
         service = _bare_service()
-        monkeypatch.setattr(
-            module.DeepFace, "build_model",
-            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network")),
-        )
+        _loadable(monkeypatch, service, fail_times=99)
 
         assert service.warm_up() is False
 
     def test_a_failed_warm_up_is_retried(self, monkeypatch):
         """A failure must not latch. The next frame gets another attempt."""
-        import app.services.emotion_service as module
-
         service = _bare_service()
-        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
-
-        attempts = []
-
-        def flaky(*a, **k):
-            attempts.append(1)
-            if len(attempts) == 1:
-                raise RuntimeError("no network")
-
-        monkeypatch.setattr(module.DeepFace, "build_model", flaky)
+        attempts = _loadable(monkeypatch, service, fail_times=1)
 
         assert service.warm_up() is False
         assert service.warm_up() is True
         assert len(attempts) == 2
 
+    def test_a_frame_arriving_before_the_models_load_is_not_an_error(self, monkeypatch):
+        """A frame can arrive while warm-up is still failing; it must return the
+        empty payload rather than raise into the transport layer."""
+        service = _bare_service()
+        _loadable(monkeypatch, service, fail_times=99)
+
+        result = service.analyze_frame(_frame())
+
+        assert result["face_detected"] is False
+        assert result["dominant_emotion"] is None
+
     def test_the_model_is_built_once_however_many_callers(self, monkeypatch):
         """Repeat calls are free: every frame calls warm_up before analysing."""
-        import app.services.emotion_service as module
-
         service = _bare_service()
-        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
-        builds = []
-        monkeypatch.setattr(module.DeepFace, "build_model",
-                            lambda *a, **k: builds.append(1))
+        builds = _loadable(monkeypatch, service)
 
         for _ in range(5):
             assert service.warm_up() is True
@@ -216,21 +246,24 @@ class TestWarmUp:
 
     def test_concurrent_warm_ups_build_the_model_only_once(self, monkeypatch):
         """The race this guards: the background warm-up thread and a worker
-        thread handling an early frame both reaching an unbuilt model.
-        DeepFace's model cache is not thread-safe, so one must wait."""
+        thread handling an early frame both reaching unbuilt models. Neither
+        cv2.dnn nor FaceDetectorYN promises anything about being constructed
+        from two threads at once, so one must wait."""
         import app.services.emotion_service as module
 
         service = _bare_service()
-        monkeypatch.setattr(service, "analyze_encoded_frame", lambda data: {}, raising=False)
+        monkeypatch.setattr(type(service), "_load_detector", lambda self: None)
+        monkeypatch.setattr(service, "_classify", lambda face: np.zeros(7), raising=False)
 
         builds = []
         start = threading.Barrier(8)
 
-        def slow_build(*a, **k):
+        def slow_build(path):
             builds.append(1)
             time.sleep(0.05)          # widen the window a racy version would lose
+            return object()
 
-        monkeypatch.setattr(module.DeepFace, "build_model", slow_build)
+        monkeypatch.setattr(module.cv2.dnn, "readNetFromONNX", slow_build)
 
         results = []
 
@@ -277,6 +310,9 @@ class TestDetectionDownscaling:
     def _service(self, boxes):
         service = EmotionService.__new__(EmotionService)
         service.face_cascade = _RecordingCascade(boxes)
+        # None selects the Haar fallback, which is what this geometry is about;
+        # YuNet returns boxes in the same coordinate space.
+        service._detector = None
         return service
 
     def test_full_resolution_is_searched_by_default(self):

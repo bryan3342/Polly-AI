@@ -27,19 +27,39 @@ BACKEND = HERE.parent.parent
 sys.path.insert(0, str(BACKEND))
 
 import cv2  # noqa: E402
+import numpy as np  # noqa: E402
 
 from app.services.emotion_service import EmotionService  # noqa: E402
 
 CLASSES = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"]
 
 
+# Set by main(): which set to score. The 20 committed fixtures are the smoke
+# test; the 175-image pool is what pipeline changes are actually decided on,
+# because at n=20 one image is five points and every candidate looks alike.
+POOL = False
+
+
+def images_dir() -> Path:
+    return HERE / ("pool" if POOL else "fixtures")
+
+
 def load_cases() -> list[dict]:
-    manifest = json.loads((HERE / "fixtures.json").read_text())
-    return manifest["cases"]
+    if not POOL:
+        return json.loads((HERE / "fixtures.json").read_text())["cases"]
+
+    path = HERE / "pool.json"
+    if not path.exists():
+        raise SystemExit("no pool on disk; run build_pool.py first")
+    return json.loads(path.read_text())
 
 
 def load_annotator() -> dict:
-    """The independent blind labelling of the same fixtures, if present."""
+    """The independent blind labelling of the same images, if present."""
+    if POOL:
+        labels = json.loads((HERE / "pool_labels.json").read_text())["annotator"]
+        return {k: {"first": v["label"]} for k, v in labels.items()}
+
     path = HERE / "annotator_labels.json"
     if not path.exists():
         return {}
@@ -51,8 +71,9 @@ def run() -> dict:
     service.warm_up()
 
     results = []
-    for case in load_cases():
-        path = HERE / "fixtures" / case["image"]
+    cases = load_cases()
+    for case in cases:
+        path = images_dir() / case["image"]
         frame = cv2.imread(str(path))
         if frame is None:
             raise SystemExit(f"could not read fixture {path}")
@@ -119,6 +140,10 @@ def summarise(results: list[dict], cases: list[dict]) -> dict:
             "median_ms": latencies[len(latencies) // 2] if latencies else 0.0,
             "max_ms": latencies[-1] if latencies else 0.0,
         },
+        "balanced_accuracy": round(float(np.mean([
+            bucket["correct"] / bucket["detected"]
+            for bucket in per_class.values() if bucket["detected"]
+        ])), 4) if per_class else 0.0,
         "per_class": per_class,
         "confusion": confusion,
     }
@@ -173,6 +198,12 @@ def report(data: dict) -> None:
     print(f"top-1 end to end    {summary['top1_accuracy_end_to_end']:.0%}")
     print(f"latency             median {summary['median_ms']}ms, max {summary['max_ms']}ms")
 
+    balanced = data.get("balanced_accuracy")
+    if balanced is not None:
+        print(f"balanced accuracy   {balanced:.0%}  (mean per-class recall; the "
+              f"honest figure on\n                    an imbalanced set, where "
+              f"over-predicting one class flatters top-1)")
+
     print("\nper class:")
     for label in CLASSES:
         bucket = data["per_class"].get(label)
@@ -206,7 +237,13 @@ def report(data: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", type=Path, help="also write the full result as JSON")
+    parser.add_argument("--pool", action="store_true",
+                        help="score the 175-image tuning pool instead of the 20 "
+                             "committed fixtures (run build_pool.py first)")
     args = parser.parse_args()
+
+    global POOL
+    POOL = args.pool
 
     data = run()
     report(data)
